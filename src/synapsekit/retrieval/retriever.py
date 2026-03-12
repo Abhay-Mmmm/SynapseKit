@@ -73,3 +73,21 @@ class Retriever:
         reranked = self._bm25_rerank(query, texts, top_k)
         text_to_result = {r["text"]: r for r in results}
         return [text_to_result[t] for t in reranked if t in text_to_result]
+
+    async def retrieve_mmr(
+        self,
+        query: str,
+        top_k: int = 5,
+        lambda_mult: float = 0.5,
+        fetch_k: int = 20,
+        metadata_filter: dict | None = None,
+    ) -> list[str]:
+        """Retrieve using Maximal Marginal Relevance for diversity."""
+        results = await self._store.search_mmr(
+            query,
+            top_k=top_k,
+            lambda_mult=lambda_mult,
+            fetch_k=fetch_k,
+            metadata_filter=metadata_filter,
+        )
+        return [r["text"] for r in results]

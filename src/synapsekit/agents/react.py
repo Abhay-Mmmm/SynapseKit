@@ -80,6 +80,11 @@ class ReActAgent:
         self._max_iterations = max_iterations
         self._memory = memory or AgentMemory(max_steps=max_iterations)
 
+    def __repr__(self) -> str:
+        llm = type(self._llm).__name__
+        tools = len(self._registry.schemas())
+        return f"ReActAgent(llm={llm!r}, tools={tools}, max_iterations={self._max_iterations})"
+
     def _build_system_prompt(self) -> str:
         return _REACT_SYSTEM.format(tools=self._registry.describe())
 

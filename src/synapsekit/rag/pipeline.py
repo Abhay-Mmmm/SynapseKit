@@ -41,16 +41,36 @@ class RAGPipeline:
             chunk_overlap=config.chunk_overlap,
         )
 
+    def __repr__(self) -> str:
+        model = type(self.config.llm).__name__
+        splitter = type(self._splitter).__name__
+        return f"RAGPipeline(llm={model!r}, splitter={splitter!r})"
+
     async def add(self, text: str, metadata: dict | None = None) -> None:
-        """Chunk text and add to the vectorstore."""
+        """Chunk text and add to the vectorstore.
+
+        Silently skips empty or whitespace-only text.
+        """
+        if not text or not text.strip():
+            return
         chunks = self._splitter.split(text)
+        if not chunks:
+            return
         meta = [metadata or {} for _ in chunks]
         await self.config.retriever.add(chunks, meta)
 
     async def add_documents(self, docs: list[Document]) -> None:
-        """Chunk and add a list of Documents to the vectorstore."""
+        """Chunk and add a list of Documents to the vectorstore.
+
+        Empty documents are silently skipped.
+        """
         for doc in docs:
             await self.add(doc.text, doc.metadata)
+
+    async def _has_documents(self) -> bool:
+        """Check if the vectorstore has any documents."""
+        probe = await self.config.retriever.retrieve("test", top_k=1)
+        return len(probe) > 0
 
     async def stream(self, query: str, top_k: int | None = None) -> AsyncGenerator[str]:
         """Retrieve context, build prompt, stream LLM response, update memory."""

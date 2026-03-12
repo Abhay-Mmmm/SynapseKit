@@ -1,4 +1,5 @@
 from .base import BaseLLM, LLMConfig
+from .structured import generate_structured
 
 __all__ = [
     "AnthropicLLM",
@@ -10,6 +11,7 @@ __all__ = [
     "MistralLLM",
     "OllamaLLM",
     "OpenAILLM",
+    "generate_structured",
 ]
 
 _PROVIDERS = {

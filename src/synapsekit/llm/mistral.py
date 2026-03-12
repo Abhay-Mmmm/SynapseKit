@@ -44,7 +44,7 @@ class MistralLLM(BaseLLM):
                 self._output_tokens += 1
                 yield delta
 
-    async def call_with_tools(
+    async def _call_with_tools_impl(
         self,
         messages: list[dict],
         tools: list[dict],

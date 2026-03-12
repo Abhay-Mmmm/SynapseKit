@@ -82,6 +82,81 @@ class InMemoryVectorStore(VectorStore):
             for i in top_indices
         ]
 
+    async def search_mmr(
+        self,
+        query: str,
+        top_k: int = 5,
+        lambda_mult: float = 0.5,
+        fetch_k: int = 20,
+        metadata_filter: dict | None = None,
+    ) -> list[dict]:
+        """Maximal Marginal Relevance search.
+
+        Greedily selects documents that maximize:
+        ``lambda * sim(query, doc) - (1-lambda) * max(sim(doc, selected))``
+        """
+        if self._vectors is None or len(self._texts) == 0:
+            return []
+
+        q_vec = await self._embeddings.embed_one(query)  # (D,)
+        scores = self._vectors @ q_vec  # (N,) cosine sim
+
+        # Build candidate pool
+        if metadata_filter:
+            candidates = [
+                i
+                for i in range(len(self._texts))
+                if all(self._metadata[i].get(k) == v for k, v in metadata_filter.items())
+            ]
+        else:
+            candidates = list(range(len(self._texts)))
+
+        if not candidates:
+            return []
+
+        # Take top fetch_k by relevance
+        candidate_scores = [(i, float(scores[i])) for i in candidates]
+        candidate_scores.sort(key=lambda x: x[1], reverse=True)
+        pool = candidate_scores[: min(fetch_k, len(candidate_scores))]
+
+        # Greedy MMR selection
+        selected: list[int] = []
+
+        for _ in range(min(top_k, len(pool))):
+            best_idx = -1
+            best_score = float("-inf")
+
+            for idx, rel_score in pool:
+                if idx in selected:
+                    continue
+
+                # Max similarity to already-selected docs
+                if selected:
+                    sim_to_selected = max(
+                        float(self._vectors[idx] @ self._vectors[s]) for s in selected
+                    )
+                else:
+                    sim_to_selected = 0.0
+
+                mmr_score = lambda_mult * rel_score - (1 - lambda_mult) * sim_to_selected
+
+                if mmr_score > best_score:
+                    best_score = mmr_score
+                    best_idx = idx
+
+            if best_idx == -1:
+                break
+            selected.append(best_idx)
+
+        return [
+            {
+                "text": self._texts[i],
+                "score": float(scores[i]),
+                "metadata": self._metadata[i],
+            }
+            for i in selected
+        ]
+
     def save(self, path: str) -> None:
         """Persist vectors, texts, and metadata to a .npz file."""
         if self._vectors is None:

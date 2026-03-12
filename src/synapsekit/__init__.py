@@ -51,6 +51,7 @@ from .graph import (
     rag_node,
 )
 from .llm.base import BaseLLM, LLMConfig
+from .llm.structured import generate_structured
 from .loaders.base import Document
 from .loaders.csv import CSVLoader
 from .loaders.directory import DirectoryLoader
@@ -78,7 +79,7 @@ from .text_splitters import (
     TokenAwareSplitter,
 )
 
-__version__ = "0.5.1"
+__version__ = "0.5.2"
 __all__ = [
     # Facade
     "RAG",
@@ -162,6 +163,8 @@ __all__ = [
     "BaseCheckpointer",
     "InMemoryCheckpointer",
     "SQLiteCheckpointer",
+    # Structured output
+    "generate_structured",
 ]
 
 # Lazy imports for optional vector store backends

@@ -63,7 +63,7 @@ class OpenAILLM(BaseLLM):
             if chunk.choices and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
 
-    async def call_with_tools(
+    async def _call_with_tools_impl(
         self,
         messages: list[dict],
         tools: list[dict],

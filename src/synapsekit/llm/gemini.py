@@ -48,7 +48,7 @@ class GeminiLLM(BaseLLM):
         async for token in self.stream(prompt, **kw):
             yield token
 
-    async def call_with_tools(
+    async def _call_with_tools_impl(
         self,
         messages: list[dict],
         tools: list[dict],

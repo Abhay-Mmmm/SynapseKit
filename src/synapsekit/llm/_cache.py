@@ -12,6 +12,8 @@ class AsyncLRUCache:
     def __init__(self, maxsize: int = 128) -> None:
         self._maxsize = maxsize
         self._cache: OrderedDict[str, Any] = OrderedDict()
+        self.hits: int = 0
+        self.misses: int = 0
 
     @staticmethod
     def make_key(
@@ -35,7 +37,9 @@ class AsyncLRUCache:
     def get(self, key: str) -> Any | None:
         if key in self._cache:
             self._cache.move_to_end(key)
+            self.hits += 1
             return self._cache[key]
+        self.misses += 1
         return None
 
     def put(self, key: str, value: Any) -> None:

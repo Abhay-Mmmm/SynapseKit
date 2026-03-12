@@ -34,10 +34,15 @@ class FunctionCallingAgent:
         self._memory = memory or AgentMemory(max_steps=max_iterations)
         self._system_prompt = system_prompt
 
+    def __repr__(self) -> str:
+        llm = type(self._llm).__name__
+        tools = len(self._registry.schemas())
+        return f"FunctionCallingAgent(llm={llm!r}, tools={tools}, max_iterations={self._max_iterations})"
+
     def _check_support(self) -> None:
-        # Check if the provider has overridden call_with_tools (not just the base NotImplementedError)
-        method = getattr(type(self._llm), "call_with_tools", None)
-        if method is getattr(BaseLLM, "call_with_tools", None):
+        # Check if the provider has overridden _call_with_tools_impl (not just the base NotImplementedError)
+        method = getattr(type(self._llm), "_call_with_tools_impl", None)
+        if method is getattr(BaseLLM, "_call_with_tools_impl", None):
             raise RuntimeError(
                 f"{type(self._llm).__name__} does not support native function calling. "
                 "Use ReActAgent instead, or switch to OpenAILLM / AnthropicLLM / GeminiLLM / MistralLLM."

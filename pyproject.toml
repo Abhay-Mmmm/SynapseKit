@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "synapsekit"
-version = "0.5.1"
+version = "0.5.2"
 description = "Async-native Python framework for building production-grade LLM applications. Streaming-first, 2 dependencies, fully transparent."
 authors = [{ name = "Amit Nautiyal", email = "de.amit.nautiyal@gmail.com" }]
 license = { text = "MIT" }
@@ -75,6 +75,7 @@ dev = [
     "mypy>=1.11",
     "deptry>=0.16",
     "pre-commit>=3.7",
+    "pydantic>=2.12.5",
 ]
 
 [tool.hatch.build.targets.wheel]

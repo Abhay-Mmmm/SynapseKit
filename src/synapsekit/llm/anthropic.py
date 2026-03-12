@@ -64,7 +64,7 @@ class AnthropicLLM(BaseLLM):
             self._input_tokens += message.usage.input_tokens or 0
             self._output_tokens += message.usage.output_tokens or 0
 
-    async def call_with_tools(
+    async def _call_with_tools_impl(
         self,
         messages: list[dict],
         tools: list[dict],

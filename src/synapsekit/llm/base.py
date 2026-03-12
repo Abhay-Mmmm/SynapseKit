@@ -18,6 +18,8 @@ class LLMConfig:
     # Retries
     max_retries: int = 0
     retry_delay: float = 1.0
+    # Rate limiting
+    requests_per_minute: int | None = None
 
 
 class BaseLLM(ABC):
@@ -28,10 +30,15 @@ class BaseLLM(ABC):
         self._input_tokens: int = 0
         self._output_tokens: int = 0
         self._cache: Any = None
+        self._rate_limiter: Any = None
         if config.cache:
             from ._cache import AsyncLRUCache
 
             self._cache = AsyncLRUCache(maxsize=config.cache_maxsize)
+        if config.requests_per_minute is not None:
+            from ._rate_limit import TokenBucketRateLimiter
+
+            self._rate_limiter = TokenBucketRateLimiter(config.requests_per_minute)
 
     @abstractmethod
     async def stream(self, prompt: str, **kw: Any) -> AsyncGenerator[str]:
@@ -76,8 +83,14 @@ class BaseLLM(ABC):
             )
         return await self._generate_uncached(prompt, **kw)
 
+    async def _acquire_rate_limit(self) -> None:
+        """Wait for rate limiter if configured."""
+        if self._rate_limiter is not None:
+            await self._rate_limiter.acquire()
+
     async def _generate_uncached(self, prompt: str, **kw: Any) -> str:
         """Raw generate — no cache, no retry."""
+        await self._acquire_rate_limit()
         return "".join([t async for t in self.stream(prompt, **kw)])
 
     async def stream_with_messages(
@@ -127,6 +140,7 @@ class BaseLLM(ABC):
         self, messages: list[dict[str, Any]], **kw: Any
     ) -> str:
         """Raw generate_with_messages — no cache, no retry."""
+        await self._acquire_rate_limit()
         return "".join([t async for t in self.stream_with_messages(messages, **kw)])
 
     async def call_with_tools(
@@ -134,10 +148,45 @@ class BaseLLM(ABC):
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        """Native function-calling. Override in providers that support it."""
+        """Native function-calling with optional retry and rate limiting.
+
+        Override ``_call_with_tools_impl`` in providers that support it.
+        """
+        await self._acquire_rate_limit()
+        if self.config.max_retries > 0:
+            from ._retry import retry_async
+
+            return dict(
+                await retry_async(
+                    self._call_with_tools_impl,
+                    messages,
+                    tools,
+                    max_retries=self.config.max_retries,
+                    delay=self.config.retry_delay,
+                )
+            )
+        return await self._call_with_tools_impl(messages, tools)
+
+    async def _call_with_tools_impl(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Override in providers that support native function calling."""
         raise NotImplementedError(
             f"{type(self).__name__} does not support native function calling."
         )
+
+    @property
+    def cache_stats(self) -> dict[str, int]:
+        """Return cache hit/miss/size statistics, or empty dict if caching is disabled."""
+        if self._cache is None:
+            return {}
+        return {
+            "hits": self._cache.hits,
+            "misses": self._cache.misses,
+            "size": len(self._cache),
+        }
 
     @property
     def tokens_used(self) -> dict[str, int]:
