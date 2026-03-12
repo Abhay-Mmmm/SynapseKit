@@ -8,6 +8,8 @@ class ConversationMemory:
     """
 
     def __init__(self, window: int = 10) -> None:
+        if window < 1:
+            raise ValueError("window must be >= 1")
         self._window = window
         self._messages: list[dict] = []
 

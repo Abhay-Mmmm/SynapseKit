@@ -26,6 +26,8 @@ class FunctionCallingAgent:
         memory: AgentMemory | None = None,
         system_prompt: str = "You are a helpful AI assistant.",
     ) -> None:
+        if max_iterations < 1:
+            raise ValueError("max_iterations must be >= 1")
         self._llm = llm
         self._registry = ToolRegistry(tools)
         self._max_iterations = max_iterations

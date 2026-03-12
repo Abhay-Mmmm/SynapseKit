@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import os
 
 from .base import Document
 
@@ -19,6 +20,8 @@ class CSVLoader:
         self._encoding = encoding
 
     def load(self) -> list[Document]:
+        if not os.path.exists(self._path):
+            raise FileNotFoundError(f"CSV file not found: {self._path}")
         docs = []
         with open(self._path, encoding=self._encoding, newline="") as f:
             reader = csv.DictReader(f)

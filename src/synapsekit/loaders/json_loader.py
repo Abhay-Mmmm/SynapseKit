@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 from .base import Document
 
@@ -21,6 +22,8 @@ class JSONLoader:
         self._encoding = encoding
 
     def load(self) -> list[Document]:
+        if not os.path.exists(self._path):
+            raise FileNotFoundError(f"JSON file not found: {self._path}")
         with open(self._path, encoding=self._encoding) as f:
             data = json.load(f)
 

@@ -36,10 +36,15 @@ class Retriever:
         ranked_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
         return [texts[i] for i in ranked_indices[:top_k]]
 
-    async def retrieve(self, query: str, top_k: int = 5) -> list[str]:
+    async def retrieve(
+        self,
+        query: str,
+        top_k: int = 5,
+        metadata_filter: dict | None = None,
+    ) -> list[str]:
         """Return top_k relevant text chunks for query."""
         fetch_k = top_k * 3 if self._rerank else top_k
-        results = await self._store.search(query, top_k=fetch_k)
+        results = await self._store.search(query, top_k=fetch_k, metadata_filter=metadata_filter)
 
         if not results:
             return []
@@ -51,10 +56,15 @@ class Retriever:
 
         return texts[:top_k]
 
-    async def retrieve_with_scores(self, query: str, top_k: int = 5) -> list[dict]:
+    async def retrieve_with_scores(
+        self,
+        query: str,
+        top_k: int = 5,
+        metadata_filter: dict | None = None,
+    ) -> list[dict]:
         """Return top_k results with scores and metadata."""
         fetch_k = top_k * 3 if self._rerank else top_k
-        results = await self._store.search(query, top_k=fetch_k)
+        results = await self._store.search(query, top_k=fetch_k, metadata_filter=metadata_filter)
 
         if not results or not self._rerank:
             return results[:top_k]

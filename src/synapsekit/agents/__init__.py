@@ -4,6 +4,7 @@ from .function_calling import FunctionCallingAgent
 from .memory import AgentMemory, AgentStep
 from .react import ReActAgent
 from .registry import ToolRegistry
+from .tool_decorator import tool
 from .tools import (
     CalculatorTool,
     FileReadTool,
@@ -24,6 +25,8 @@ __all__ = [
     "FunctionCallingAgent",
     "AgentExecutor",
     "AgentConfig",
+    # Decorator
+    "tool",
     # Built-in tools
     "CalculatorTool",
     "FileReadTool",

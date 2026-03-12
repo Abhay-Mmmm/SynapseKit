@@ -94,11 +94,13 @@ class TestTextLoader:
 
 
 class TestPDFLoader:
-    def test_import_error_without_pypdf(self):
+    def test_import_error_without_pypdf(self, tmp_path):
         from synapsekit.loaders.pdf import PDFLoader
 
+        dummy = tmp_path / "dummy.pdf"
+        dummy.write_bytes(b"%PDF-1.4 fake")
         with patch.dict("sys.modules", {"pypdf": None}):
-            loader = PDFLoader("dummy.pdf")
+            loader = PDFLoader(str(dummy))
             with pytest.raises(ImportError, match="pypdf"):
                 loader.load()
 
@@ -129,11 +131,13 @@ class TestPDFLoader:
 
 
 class TestHTMLLoader:
-    def test_import_error_without_bs4(self):
+    def test_import_error_without_bs4(self, tmp_path):
         from synapsekit.loaders.html import HTMLLoader
 
+        dummy = tmp_path / "dummy.html"
+        dummy.write_text("<html></html>")
         with patch.dict("sys.modules", {"bs4": None}):
-            loader = HTMLLoader("dummy.html")
+            loader = HTMLLoader(str(dummy))
             with pytest.raises(ImportError, match="beautifulsoup4"):
                 loader.load()
 

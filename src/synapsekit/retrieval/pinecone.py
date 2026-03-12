@@ -40,7 +40,9 @@ class PineconeVectorStore(VectorStore):
         self._index.upsert(vectors=vectors)
         self._count += len(texts)
 
-    async def search(self, query: str, top_k: int = 5) -> list[dict]:
+    async def search(
+        self, query: str, top_k: int = 5, metadata_filter: dict | None = None
+    ) -> list[dict]:
         q_vec = await self._embeddings.embed_one(query)
         results = self._index.query(vector=q_vec.tolist(), top_k=top_k, include_metadata=True)
         return [

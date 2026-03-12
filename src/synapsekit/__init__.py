@@ -29,6 +29,7 @@ from .agents import (
     ToolRegistry,
     ToolResult,
     WebSearchTool,
+    tool,
 )
 from .embeddings.backend import SynapsekitEmbeddings
 from .graph import (
@@ -77,7 +78,7 @@ from .text_splitters import (
     TokenAwareSplitter,
 )
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 __all__ = [
     # Facade
     "RAG",
@@ -92,6 +93,10 @@ __all__ = [
     # Vector stores
     "VectorStore",
     "InMemoryVectorStore",
+    "ChromaVectorStore",
+    "FAISSVectorStore",
+    "QdrantVectorStore",
+    "PineconeVectorStore",
     # Retrieval
     "Retriever",
     # Memory / observability
@@ -125,6 +130,8 @@ __all__ = [
     "FunctionCallingAgent",
     "AgentExecutor",
     "AgentConfig",
+    # Tool decorator
+    "tool",
     # Built-in tools
     "CalculatorTool",
     "FileReadTool",
@@ -156,3 +163,22 @@ __all__ = [
     "InMemoryCheckpointer",
     "SQLiteCheckpointer",
 ]
+
+# Lazy imports for optional vector store backends
+_OPTIONAL_VECTOR_STORES = {
+    "ChromaVectorStore": "retrieval.chroma",
+    "FAISSVectorStore": "retrieval.faiss",
+    "QdrantVectorStore": "retrieval.qdrant",
+    "PineconeVectorStore": "retrieval.pinecone",
+}
+
+
+def __getattr__(name: str):
+    if name in _OPTIONAL_VECTOR_STORES:
+        import importlib
+
+        mod = importlib.import_module(f".{_OPTIONAL_VECTOR_STORES[name]}", __name__)
+        cls = getattr(mod, name)
+        globals()[name] = cls
+        return cls
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

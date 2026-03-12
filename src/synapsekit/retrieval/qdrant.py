@@ -59,7 +59,9 @@ class QdrantVectorStore(VectorStore):
         self._client.upsert(collection_name=self._collection, points=points)
         self._count += len(texts)
 
-    async def search(self, query: str, top_k: int = 5) -> list[dict]:
+    async def search(
+        self, query: str, top_k: int = 5, metadata_filter: dict | None = None
+    ) -> list[dict]:
         q_vec = await self._embeddings.embed_one(query)
         results = self._client.search(
             collection_name=self._collection,

@@ -14,7 +14,12 @@ class VectorStore(ABC):
     ) -> None: ...
 
     @abstractmethod
-    async def search(self, query: str, top_k: int = 5) -> list[dict]: ...
+    async def search(
+        self,
+        query: str,
+        top_k: int = 5,
+        metadata_filter: dict | None = None,
+    ) -> list[dict]: ...
 
     def save(self, path: str) -> None:
         raise NotImplementedError(f"{type(self).__name__} does not support save()")

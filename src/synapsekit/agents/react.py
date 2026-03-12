@@ -73,6 +73,8 @@ class ReActAgent:
         max_iterations: int = 10,
         memory: AgentMemory | None = None,
     ) -> None:
+        if max_iterations < 1:
+            raise ValueError("max_iterations must be >= 1")
         self._llm = llm
         self._registry = ToolRegistry(tools)
         self._max_iterations = max_iterations

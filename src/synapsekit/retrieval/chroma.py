@@ -47,7 +47,9 @@ class ChromaVectorStore(VectorStore):
         )
         self._offset += len(texts)
 
-    async def search(self, query: str, top_k: int = 5) -> list[dict]:
+    async def search(
+        self, query: str, top_k: int = 5, metadata_filter: dict | None = None
+    ) -> list[dict]:
         count = self._collection.count()
         if count == 0:
             return []

@@ -37,7 +37,9 @@ class FAISSVectorStore(VectorStore):
         self._texts.extend(texts)
         self._metadata.extend(meta)
 
-    async def search(self, query: str, top_k: int = 5) -> list[dict]:
+    async def search(
+        self, query: str, top_k: int = 5, metadata_filter: dict | None = None
+    ) -> list[dict]:
         if self._index is None or not self._texts:
             return []
         q_vec = await self._embeddings.embed_one(query)

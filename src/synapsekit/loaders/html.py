@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from .base import Document
 
 
@@ -11,6 +13,8 @@ class HTMLLoader:
         self._encoding = encoding
 
     def load(self) -> list[Document]:
+        if not os.path.exists(self._path):
+            raise FileNotFoundError(f"HTML file not found: {self._path}")
         try:
             from bs4 import BeautifulSoup
         except ImportError:

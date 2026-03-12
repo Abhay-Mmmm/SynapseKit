@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from .base import Document
 
 
@@ -10,6 +12,8 @@ class PDFLoader:
         self._path = path
 
     def load(self) -> list[Document]:
+        if not os.path.exists(self._path):
+            raise FileNotFoundError(f"PDF file not found: {self._path}")
         try:
             from pypdf import PdfReader
         except ImportError:
