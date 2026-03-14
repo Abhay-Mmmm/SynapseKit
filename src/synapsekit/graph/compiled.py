@@ -10,6 +10,7 @@ from .errors import GraphRuntimeError
 from .interrupt import GraphInterrupt
 from .mermaid import get_mermaid
 from .state import END
+from .streaming import EventHooks, GraphEvent
 
 if TYPE_CHECKING:
     from .checkpointers.base import BaseCheckpointer
@@ -42,15 +43,24 @@ class CompiledGraph:
     # Public API
     # ------------------------------------------------------------------ #
 
+    def _merge_state(self, state: dict[str, Any], partial: dict[str, Any]) -> None:
+        """Merge partial state into current state, using reducers if available."""
+        schema = self._graph._state_schema
+        if schema is not None:
+            schema.merge(state, partial)
+        else:
+            state.update(partial)
+
     async def run(
         self,
         state: dict[str, Any],
         checkpointer: BaseCheckpointer | None = None,
         graph_id: str | None = None,
+        hooks: EventHooks | None = None,
     ) -> dict[str, Any]:
         """Run the graph to completion and return the final state."""
         state = dict(state)
-        async for _ in self._execute(state, checkpointer=checkpointer, graph_id=graph_id):
+        async for _ in self._execute(state, checkpointer=checkpointer, graph_id=graph_id, hooks=hooks):
             pass
         return state
 
@@ -59,13 +69,14 @@ class CompiledGraph:
         state: dict[str, Any],
         checkpointer: BaseCheckpointer | None = None,
         graph_id: str | None = None,
+        hooks: EventHooks | None = None,
     ) -> AsyncGenerator[dict[str, Any]]:
         """
         Yield ``{"node": name, "state": snapshot}`` for each completed node.
         The caller receives incremental state updates as nodes finish.
         """
         state = dict(state)
-        async for event in self._execute(state, checkpointer=checkpointer, graph_id=graph_id):
+        async for event in self._execute(state, checkpointer=checkpointer, graph_id=graph_id, hooks=hooks):
             yield event
 
     async def resume(
@@ -95,11 +106,12 @@ class CompiledGraph:
         state: dict[str, Any],
         checkpointer: BaseCheckpointer | None = None,
         graph_id: str | None = None,
+        hooks: EventHooks | None = None,
     ) -> dict[str, Any]:
         """Synchronous wrapper — works inside and outside a running event loop."""
         from .._compat import run_sync
 
-        return run_sync(self.run(state, checkpointer=checkpointer, graph_id=graph_id))
+        return run_sync(self.run(state, checkpointer=checkpointer, graph_id=graph_id, hooks=hooks))
 
     async def stream_tokens(
         self,
@@ -152,7 +164,7 @@ class CompiledGraph:
                     if "__stream_key__" in result:
                         result[result.pop("__stream_key__")] = "".join(collected)
 
-                state.update(result)
+                self._merge_state(state, result)
                 yield {"type": "node_complete", "node": name, "state": dict(state)}
 
             current_wave = await self._next_wave(current_wave, state)
@@ -169,6 +181,7 @@ class CompiledGraph:
         state: dict[str, Any],
         checkpointer: BaseCheckpointer | None = None,
         graph_id: str | None = None,
+        hooks: EventHooks | None = None,
     ) -> AsyncGenerator[dict[str, Any]]:
         graph = self._graph
         current_wave: list[str] = [graph._entry_point]  # type: ignore[list-item]
@@ -181,6 +194,18 @@ class CompiledGraph:
                     "Check for infinite loops in conditional edges."
                 )
             steps += 1
+
+            # Emit wave_start event
+            if hooks is not None:
+                await hooks.emit(GraphEvent(
+                    event_type="wave_start",
+                    data={"wave": current_wave, "step": steps},
+                ))
+
+            # Emit node_start events
+            if hooks is not None:
+                for name in current_wave:
+                    await hooks.emit(GraphEvent(event_type="node_start", node=name))
 
             # Run all nodes in this wave concurrently
             try:
@@ -195,8 +220,24 @@ class CompiledGraph:
 
             # Merge partial results into state and yield events
             for name, partial in zip(current_wave, results, strict=False):
-                state.update(partial)
+                self._merge_state(state, partial)
                 yield {"node": name, "state": dict(state)}
+
+                # Emit node_complete event
+                if hooks is not None:
+                    await hooks.emit(GraphEvent(
+                        event_type="node_complete",
+                        node=name,
+                        state=dict(state),
+                    ))
+
+            # Emit wave_complete event
+            if hooks is not None:
+                await hooks.emit(GraphEvent(
+                    event_type="wave_complete",
+                    data={"wave": current_wave, "step": steps},
+                    state=dict(state),
+                ))
 
             # Save checkpoint after wave completion
             if checkpointer is not None and graph_id is not None:

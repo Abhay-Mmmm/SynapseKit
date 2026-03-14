@@ -3,7 +3,7 @@ from __future__ import annotations
 from .edge import ConditionalEdge, ConditionFn, Edge
 from .errors import GraphConfigError
 from .node import Node, NodeFn
-from .state import END
+from .state import END, TypedState
 
 
 class StateGraph:
@@ -18,12 +18,22 @@ class StateGraph:
         graph.set_entry_point("a").set_finish_point("b")
         compiled = graph.compile()
         result = await compiled.run({"input": "hello"})
+
+    With typed state and reducers::
+
+        from synapsekit.graph.state import StateField, TypedState
+
+        schema = TypedState(fields={
+            "messages": StateField(default=list, reducer=lambda cur, new: cur + new),
+        })
+        graph = StateGraph(state_schema=schema)
     """
 
-    def __init__(self) -> None:
+    def __init__(self, state_schema: TypedState | None = None) -> None:
         self._nodes: dict[str, Node] = {}
         self._edges: list[Edge | ConditionalEdge] = []
         self._entry_point: str | None = None
+        self._state_schema = state_schema
 
     def __repr__(self) -> str:
         return f"StateGraph(nodes={len(self._nodes)}, edges={len(self._edges)})"
