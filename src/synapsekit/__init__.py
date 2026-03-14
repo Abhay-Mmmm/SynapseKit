@@ -32,9 +32,12 @@ from .agents import (
     PythonREPLTool,
     ReActAgent,
     RegexTool,
+    SentimentAnalysisTool,
     SQLQueryTool,
+    SummarizationTool,
     ToolRegistry,
     ToolResult,
+    TranslationTool,
     WebSearchTool,
     WikipediaTool,
     tool,
@@ -47,7 +50,9 @@ from .graph import (
     ConditionalEdge,
     ConditionFn,
     Edge,
+    EventHooks,
     GraphConfigError,
+    GraphEvent,
     GraphInterrupt,
     GraphRuntimeError,
     GraphState,
@@ -56,10 +61,14 @@ from .graph import (
     Node,
     NodeFn,
     SQLiteCheckpointer,
+    StateField,
     StateGraph,
+    TypedState,
     agent_node,
+    fan_out_node,
     llm_node,
     rag_node,
+    sse_stream,
     subgraph_node,
 )
 from .llm.base import BaseLLM, LLMConfig
@@ -104,7 +113,7 @@ from .text_splitters import (
     TokenAwareSplitter,
 )
 
-__version__ = "0.6.2"
+__version__ = "0.6.3"
 __all__ = [
     # Facade
     "RAG",
@@ -190,7 +199,10 @@ __all__ = [
     "JSONQueryTool",
     "PythonREPLTool",
     "RegexTool",
+    "SentimentAnalysisTool",
     "SQLQueryTool",
+    "SummarizationTool",
+    "TranslationTool",
     "WebSearchTool",
     "WikipediaTool",
     # Text splitters
@@ -215,8 +227,14 @@ __all__ = [
     "Edge",
     "ConditionalEdge",
     "ConditionFn",
+    "EventHooks",
+    "GraphEvent",
+    "StateField",
     "StateGraph",
+    "TypedState",
     "CompiledGraph",
+    "fan_out_node",
+    "sse_stream",
     # Checkpointers
     "BaseCheckpointer",
     "InMemoryCheckpointer",

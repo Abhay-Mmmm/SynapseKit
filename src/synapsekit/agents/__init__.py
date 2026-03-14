@@ -16,7 +16,10 @@ from .tools import (
     JSONQueryTool,
     PythonREPLTool,
     RegexTool,
+    SentimentAnalysisTool,
     SQLQueryTool,
+    SummarizationTool,
+    TranslationTool,
     WebSearchTool,
     WikipediaTool,
 )
@@ -46,7 +49,10 @@ __all__ = [
     "JSONQueryTool",
     "PythonREPLTool",
     "RegexTool",
+    "SentimentAnalysisTool",
     "SQLQueryTool",
+    "SummarizationTool",
+    "TranslationTool",
     "WebSearchTool",
     "WikipediaTool",
 ]

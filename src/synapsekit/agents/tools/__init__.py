@@ -8,7 +8,10 @@ from .human_input import HumanInputTool
 from .json_query import JSONQueryTool
 from .python_repl import PythonREPLTool
 from .regex_tool import RegexTool
+from .sentiment import SentimentAnalysisTool
 from .sql_query import SQLQueryTool
+from .summarization import SummarizationTool
+from .translation import TranslationTool
 from .web_search import WebSearchTool
 from .wikipedia import WikipediaTool
 
@@ -23,7 +26,10 @@ __all__ = [
     "JSONQueryTool",
     "PythonREPLTool",
     "RegexTool",
+    "SentimentAnalysisTool",
     "SQLQueryTool",
+    "SummarizationTool",
+    "TranslationTool",
     "WebSearchTool",
     "WikipediaTool",
 ]
