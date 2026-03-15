@@ -38,6 +38,7 @@ from .agents import (
     ToolRegistry,
     ToolResult,
     TranslationTool,
+    WebScraperTool,
     WebSearchTool,
     WikipediaTool,
     tool,
@@ -203,6 +204,7 @@ __all__ = [
     "SQLQueryTool",
     "SummarizationTool",
     "TranslationTool",
+    "WebScraperTool",
     "WebSearchTool",
     "WikipediaTool",
     # Text splitters

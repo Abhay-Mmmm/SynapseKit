@@ -20,6 +20,7 @@ from .tools import (
     SQLQueryTool,
     SummarizationTool,
     TranslationTool,
+    WebScraperTool,
     WebSearchTool,
     WikipediaTool,
 )
@@ -53,6 +54,7 @@ __all__ = [
     "SQLQueryTool",
     "SummarizationTool",
     "TranslationTool",
+    "WebScraperTool",
     "WebSearchTool",
     "WikipediaTool",
 ]

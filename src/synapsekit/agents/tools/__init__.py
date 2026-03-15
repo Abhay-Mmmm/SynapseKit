@@ -12,6 +12,7 @@ from .sentiment import SentimentAnalysisTool
 from .sql_query import SQLQueryTool
 from .summarization import SummarizationTool
 from .translation import TranslationTool
+from .web_scraper import WebScraperTool
 from .web_search import WebSearchTool
 from .wikipedia import WikipediaTool
 
@@ -30,6 +31,7 @@ __all__ = [
     "SQLQueryTool",
     "SummarizationTool",
     "TranslationTool",
+    "WebScraperTool",
     "WebSearchTool",
     "WikipediaTool",
 ]
