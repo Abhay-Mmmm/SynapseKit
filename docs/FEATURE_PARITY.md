@@ -1,6 +1,6 @@
 # SynapseKit vs LangChain — Feature Parity Report
 
-> Updated for v0.6.4 (2026-03-15)
+> Updated for v0.6.5 (2026-03-15)
 
 ## Phase 1: RAG Pipelines
 
@@ -9,12 +9,12 @@
 | Document loaders | 200+ (PDF, Notion, Slack, Google Drive...) | 14 (Text, String, PDF, HTML, CSV, JSON, Directory, Web, Excel, PowerPoint, Docx, Markdown, Contextual, SentenceWindow) | Covers all common formats |
 | Text splitters | 5+ strategies (recursive, semantic, token-aware) | 5 (character, recursive, token-aware, semantic, markdown) | At parity |
 | Vector stores | 20+ (Chroma, FAISS, Pinecone, Weaviate, PGVector...) | 5 (InMemory, Chroma, FAISS, Qdrant, Pinecone) | Solid — covers the major ones |
-| Retrieval strategies | Similarity, MMR, hybrid, self-query, ensemble, CRAG, compression | 10 strategies (vector+BM25, MMR, RAG Fusion, Contextual, SentenceWindow, SelfQuery, ParentDoc, CrossEncoder, CRAG, QueryDecomp, Compression, Ensemble) | At parity |
-| Conversation memory | 4+ types (buffer, summary, window, entity) | 4 (ConversationMemory, HybridMemory, SQLiteConversationMemory, SummaryBufferMemory) | At parity |
+| Retrieval strategies | Similarity, MMR, hybrid, self-query, ensemble, CRAG, compression | 14 strategies (vector+BM25, MMR, RAG Fusion, Contextual, SentenceWindow, SelfQuery, ParentDoc, CrossEncoder, CRAG, QueryDecomp, Compression, Ensemble, CohereRerank, StepBack, FLARE, HyDE) | Exceeds LangChain |
+| Conversation memory | 4+ types (buffer, summary, window, entity) | 6 (ConversationMemory, HybridMemory, SQLiteConversationMemory, SummaryBufferMemory, TokenBufferMemory) | Exceeds LangChain |
 | Streaming | Yes | Yes (stream-first) | At parity |
 | HyDE, multi-query | Yes | RAG Fusion (multi-query + RRF), QueryDecomposition, HyDE | At parity |
 
-**Verdict:** Excellent. 14 loaders, 5 splitters, 11 retrieval strategies, 5 memory backends. Covers 95%+ of real use cases. At parity with LangChain retrieval.
+**Verdict:** Excellent. 14 loaders, 5 splitters, 14 retrieval strategies, 6 memory backends. Exceeds LangChain retrieval coverage with FLARE, Step-Back, and Cohere reranking.
 
 ---
 
@@ -25,13 +25,13 @@
 | Providers | 38+ | 13 (OpenAI, Anthropic, Ollama, Cohere, Mistral, Gemini, Bedrock, Azure OpenAI, Groq, DeepSeek, OpenRouter, Together, Fireworks) | Covers all major ones |
 | Unified interface | Yes (invoke/stream/batch) | Yes (generate/stream) | At parity |
 | Auto-detect from model name | No (explicit class) | Yes | SynapseKit advantage |
-| Caching | Built-in (memory, SQLite, Redis) | In-memory LRU + SQLite + Filesystem | Missing Redis backend |
+| Caching | Built-in (memory, SQLite, Redis) | In-memory LRU + SQLite + Filesystem + Redis | At parity |
 | Rate limiting | Built-in | Token-bucket (`requests_per_minute`) | At parity |
 | Retries | Built-in | Exponential backoff (`max_retries`) | At parity |
 | Structured output | Pydantic output parsers | `generate_structured()` with retry | At parity |
 | Callbacks / observability | LangSmith integration | TokenTracer only | Basic vs enterprise |
 
-**Verdict:** Excellent coverage. 13 providers cover 99%+ of real usage. Caching (memory + SQLite + filesystem), retries, rate limiting, and structured output all done. Missing Redis cache and deep observability.
+**Verdict:** Excellent coverage. 13 providers cover 99%+ of real usage. Caching (memory + SQLite + filesystem + Redis), retries, rate limiting, and structured output all done. Only remaining gap: deep observability.
 
 ---
 
@@ -41,14 +41,14 @@
 |---|---|---|---|
 | ReAct agent | Yes | Yes | At parity |
 | Function calling agent | Yes (any provider with tool support) | Yes (OpenAI, Anthropic, Gemini, Mistral) | 4 providers — missing Cohere |
-| Built-in tools | 50+ (search, code, DB, APIs, web) | 19 (Calculator, PythonREPL, FileRead, FileWrite, FileList, WebSearch, SQL, HTTP, DateTime, Regex, JSONQuery, HumanInput, Wikipedia, Summarization, SentimentAnalysis, Translation, WebScraper, Shell, SQLSchemaInspection) | Fewer but covers essentials |
+| Built-in tools | 50+ (search, code, DB, APIs, web) | 22 (Calculator, PythonREPL, FileRead, FileWrite, FileList, WebSearch, DuckDuckGoSearch, SQL, HTTP, GraphQL, DateTime, Regex, JSONQuery, HumanInput, Wikipedia, Summarization, SentimentAnalysis, Translation, WebScraper, Shell, SQLSchemaInspection, PDFReader) | Fewer but covers essentials |
 | Custom tools | @tool decorator + StructuredTool | @tool decorator + BaseTool subclass | At parity |
 | Streaming agent steps | Yes | Yes | At parity |
 | Human input tool | Yes | Yes (`HumanInputTool`) | At parity |
 | Multi-agent orchestration | Yes (via LangGraph) | No | Missing |
 | Tool sandboxing/timeout | Partial | ShellTool has timeout + allowed-commands | Partial parity |
 
-**Verdict:** Strong for single-agent workflows. `@tool` decorator, function calling on 4 providers, 19 built-in tools including shell, SQL schema inspection, and web scraper. Missing multi-agent orchestration.
+**Verdict:** Strong for single-agent workflows. `@tool` decorator, function calling on 4 providers, 22 built-in tools including DuckDuckGo search, PDF reader, GraphQL, shell, and SQL schema inspection. Missing multi-agent orchestration.
 
 ---
 
@@ -76,14 +76,14 @@
 
 | | LangChain | SynapseKit | Notes |
 |---|---|---|---|
-| Breadth | Massive (200+ loaders, 38+ providers, 50+ tools) | Focused (14 loaders, 13 providers, 19 tools) | SynapseKit covers the 80/20 |
+| Breadth | Massive (200+ loaders, 38+ providers, 50+ tools) | Focused (14 loaders, 13 providers, 22 tools) | SynapseKit covers the 80/20 |
 | API simplicity | Complex, lots of boilerplate | Clean, 3-line happy path | SynapseKit advantage |
 | Async/streaming | Retrofitted | Native from day 1 | SynapseKit advantage |
 | Dependencies | Heavy (langchain-core + per-provider) | 2 hard deps | SynapseKit advantage |
-| Production features | Caching, retries, rate limiting, observability | Caching (memory+SQLite+filesystem), retries, rate limiting, structured output | Close — missing Redis cache, deep observability |
+| Production features | Caching, retries, rate limiting, observability | Caching (memory+SQLite+filesystem+Redis), retries, rate limiting, structured output | Close — missing deep observability |
 | Graph workflows | Mature (HITL, checkpoints, cycles, subgraphs, typed state) | HITL, checkpoints, cycles, subgraphs, typed state, fan-out, SSE, event callbacks | At parity |
-| Retrieval | 10+ strategies | 11 strategies | At parity |
-| Memory | 4+ types | 5 types (window, hybrid, SQLite, summary buffer) | At parity |
+| Retrieval | 10+ strategies | 14 strategies | Exceeds LangChain |
+| Memory | 4+ types | 6 types (window, hybrid, SQLite, summary buffer, token buffer) | Exceeds LangChain |
 
 ### Where SynapseKit already wins
 
@@ -91,8 +91,8 @@
 - Truly async-native and streaming-first
 - Minimal dependencies (2 hard deps)
 - Auto-detection of providers from model name
-- 13 LLM providers, 14 loaders, 19 tools — covers real-world needs
-- 11 retrieval strategies including CRAG, ensemble, compression, and HyDE
+- 13 LLM providers, 14 loaders, 22 tools — covers real-world needs
+- 14 retrieval strategies including CRAG, ensemble, compression, HyDE, FLARE, and Step-Back
 - Graph workflows at feature parity with LangGraph
 
 ### Closed since v0.5.0
@@ -131,6 +131,12 @@
 32. Filesystem LLM cache backend (v0.6.4)
 33. JSON file checkpointer (v0.6.4)
 34. TokenTracer COST_TABLE update — GPT-4.1, o3, Gemini 2.5, DeepSeek, Groq models (v0.6.4)
+35. CohereReranker — Cohere Rerank API reranking (v0.6.5)
+36. StepBackRetriever — step-back question generation + parallel retrieval (v0.6.5)
+37. FLARERetriever — Forward-Looking Active REtrieval with iterative search markers (v0.6.5)
+38. DuckDuckGoSearchTool, PDFReaderTool, GraphQLTool — 3 new tools (v0.6.5)
+39. TokenBufferMemory — token-budget-aware memory without LLM (v0.6.5)
+40. RedisLLMCache — distributed Redis cache backend (v0.6.5)
 
 ### Remaining priority gaps
 
