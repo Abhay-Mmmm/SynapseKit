@@ -21,6 +21,7 @@ from .agents import (
     AgentStep,
     ArxivSearchTool,
     BaseTool,
+    BraveSearchTool,
     CalculatorTool,
     DateTimeTool,
     DuckDuckGoSearchTool,
@@ -33,6 +34,7 @@ from .agents import (
     GraphQLTool,
     HTTPRequestTool,
     HumanInputTool,
+    JiraTool,
     JSONQueryTool,
     PDFReaderTool,
     PubMedSearchTool,
@@ -41,6 +43,7 @@ from .agents import (
     RegexTool,
     SentimentAnalysisTool,
     ShellTool,
+    SlackTool,
     SQLQueryTool,
     SQLSchemaInspectionTool,
     SummarizationTool,
@@ -81,6 +84,8 @@ from .graph import (
     TraceEntry,
     TypedState,
     agent_node,
+    approval_node,
+    dynamic_route_node,
     fan_out_node,
     llm_node,
     rag_node,
@@ -142,7 +147,7 @@ from .text_splitters import (
     TokenAwareSplitter,
 )
 
-__version__ = "0.6.8"
+__version__ = "0.6.9"
 __all__ = [
     # Facade
     "RAG",
@@ -234,6 +239,7 @@ __all__ = [
     "tool",
     # Built-in tools
     "ArxivSearchTool",
+    "BraveSearchTool",
     "CalculatorTool",
     "DateTimeTool",
     "DuckDuckGoSearchTool",
@@ -243,12 +249,14 @@ __all__ = [
     "GraphQLTool",
     "HTTPRequestTool",
     "HumanInputTool",
+    "JiraTool",
     "JSONQueryTool",
     "PDFReaderTool",
     "PythonREPLTool",
     "RegexTool",
     "SentimentAnalysisTool",
     "ShellTool",
+    "SlackTool",
     "SQLQueryTool",
     "SQLSchemaInspectionTool",
     "SummarizationTool",
@@ -276,6 +284,8 @@ __all__ = [
     "Node",
     "NodeFn",
     "agent_node",
+    "approval_node",
+    "dynamic_route_node",
     "llm_node",
     "rag_node",
     "subgraph_node",
