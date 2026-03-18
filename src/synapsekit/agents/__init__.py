@@ -7,6 +7,7 @@ from .registry import ToolRegistry
 from .tool_decorator import tool
 from .tools import (
     ArxivSearchTool,
+    BraveSearchTool,
     CalculatorTool,
     DateTimeTool,
     DuckDuckGoSearchTool,
@@ -18,6 +19,7 @@ from .tools import (
     GraphQLTool,
     HTTPRequestTool,
     HumanInputTool,
+    JiraTool,
     JSONQueryTool,
     PDFReaderTool,
     PubMedSearchTool,
@@ -25,6 +27,7 @@ from .tools import (
     RegexTool,
     SentimentAnalysisTool,
     ShellTool,
+    SlackTool,
     SQLQueryTool,
     SQLSchemaInspectionTool,
     SummarizationTool,
@@ -53,6 +56,7 @@ __all__ = [
     "tool",
     # Built-in tools
     "ArxivSearchTool",
+    "BraveSearchTool",
     "CalculatorTool",
     "DateTimeTool",
     "DuckDuckGoSearchTool",
@@ -64,6 +68,7 @@ __all__ = [
     "GraphQLTool",
     "HTTPRequestTool",
     "HumanInputTool",
+    "JiraTool",
     "JSONQueryTool",
     "PDFReaderTool",
     "PubMedSearchTool",
@@ -71,6 +76,7 @@ __all__ = [
     "RegexTool",
     "SentimentAnalysisTool",
     "ShellTool",
+    "SlackTool",
     "SQLQueryTool",
     "SQLSchemaInspectionTool",
     "SummarizationTool",
