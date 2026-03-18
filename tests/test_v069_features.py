@@ -241,9 +241,7 @@ class TestJiraTool:
         from synapsekit import JiraTool
 
         tool = JiraTool(url="https://x.atlassian.net", email="a@b.com", api_token="tok")
-        with patch.object(
-            tool, "_api", new_callable=AsyncMock, return_value={"key": "PROJ-99"}
-        ):
+        with patch.object(tool, "_api", new_callable=AsyncMock, return_value={"key": "PROJ-99"}):
             result = await tool.run(
                 action="create_issue", project_key="PROJ", summary="New feature"
             )
@@ -254,9 +252,7 @@ class TestJiraTool:
 
         tool = JiraTool(url="https://x.atlassian.net", email="a@b.com", api_token="tok")
         with patch.object(tool, "_api", new_callable=AsyncMock, return_value={}):
-            result = await tool.run(
-                action="add_comment", issue_key="PROJ-1", comment="Looks good!"
-            )
+            result = await tool.run(action="add_comment", issue_key="PROJ-1", comment="Looks good!")
         assert "PROJ-1" in result.output
 
     def test_name_and_description(self):

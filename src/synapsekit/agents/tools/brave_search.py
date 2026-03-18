@@ -45,9 +45,7 @@ class BraveSearchTool(BaseTool):
     def __init__(self, api_key: str | None = None) -> None:
         self._api_key = api_key or os.environ.get("BRAVE_API_KEY")
 
-    async def run(
-        self, query: str = "", count: int = 5, **kwargs: Any
-    ) -> ToolResult:
+    async def run(self, query: str = "", count: int = 5, **kwargs: Any) -> ToolResult:
         search_query = query or kwargs.get("input", "")
         if not search_query:
             return ToolResult(output="", error="No search query provided.")

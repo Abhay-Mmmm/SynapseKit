@@ -52,8 +52,7 @@ def dynamic_route_node(
         subgraph = subgraphs.get(route_key)
         if subgraph is None:
             raise ValueError(
-                f"Unknown route key: {route_key!r}. "
-                f"Available routes: {', '.join(subgraphs)}"
+                f"Unknown route key: {route_key!r}. Available routes: {', '.join(subgraphs)}"
             )
 
         # Build subgraph initial state from parent state

@@ -23,8 +23,7 @@ class JiraTool(BaseTool):
 
     name = "jira"
     description = (
-        "Interact with Jira to search issues, get issue details, "
-        "create issues, and add comments."
+        "Interact with Jira to search issues, get issue details, create issues, and add comments."
     )
     parameters = {
         "type": "object",
@@ -111,9 +110,7 @@ class JiraTool(BaseTool):
         creds = base64.b64encode(f"{self._email}:{self._api_token}".encode()).decode()
         return f"Basic {creds}"
 
-    def _build_request(
-        self, url: str, *, method: str = "GET", data: bytes | None = None
-    ) -> Any:
+    def _build_request(self, url: str, *, method: str = "GET", data: bytes | None = None) -> Any:
         import urllib.request
 
         headers = {

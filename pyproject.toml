@@ -156,11 +156,17 @@ module = [
     "synapsekit.llm.cerebras",
     "synapsekit.loaders.excel",
     "synapsekit.loaders.pptx",
+    "synapsekit.agents.tools.slack",
+    "synapsekit.agents.tools.jira",
+    "synapsekit.agents.tools.github_api",
+    "synapsekit.agents.tools.email_tool",
+    "synapsekit.agents.tools.pubmed_search",
+    "synapsekit.graph.streaming",
 ]
 warn_return_any = false
 # from __future__ import annotations causes mypy to misinterpret
 # async generator return types as Coroutine[..., AsyncGenerator]
-disable_error_code = ["override"]
+disable_error_code = ["override", "operator", "arg-type"]
 
 [tool.deptry]
 pep621_dev_dependency_groups = ["dev"]

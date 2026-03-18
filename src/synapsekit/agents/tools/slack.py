@@ -108,9 +108,7 @@ class SlackTool(BaseTool):
         await self._post_json(self._webhook_url, {"text": text}, headers)
         return ToolResult(output="Message sent via webhook.")
 
-    async def _send_message(
-        self, text: str = "", channel: str = "", **kwargs: Any
-    ) -> ToolResult:
+    async def _send_message(self, text: str = "", channel: str = "", **kwargs: Any) -> ToolResult:
         if not self._bot_token:
             return ToolResult(output="", error="No SLACK_BOT_TOKEN configured.")
         if not channel:
