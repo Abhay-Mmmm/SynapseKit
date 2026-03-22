@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -142,7 +141,6 @@ class TestEvalCI:
     """Test CLI-level regression flags via the test subparser."""
 
     def test_cli_has_save_flag(self):
-        from synapsekit.cli.main import main
         import argparse
 
         parser = argparse.ArgumentParser()

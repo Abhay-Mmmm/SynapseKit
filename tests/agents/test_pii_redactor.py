@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
-
 import pytest
 
-from synapsekit.agents.pii_redactor import PIIRedactor, RedactionResult
+from synapsekit.agents.pii_redactor import PIIRedactor
 from synapsekit.llm.base import BaseLLM, LLMConfig
 
 
@@ -76,6 +74,6 @@ class TestPIIRedactor:
     async def test_wrap_generate(self):
         redactor = PIIRedactor(pii_types=["email"], mode="mask")
         llm = _MockLLM(response="Got it, [EMAIL_1]!")
-        restored, redaction = await redactor.wrap_generate(llm, "My email is a@b.com")
+        restored, _redaction = await redactor.wrap_generate(llm, "My email is a@b.com")
         assert "a@b.com" in restored
         assert "[EMAIL_1]" not in restored

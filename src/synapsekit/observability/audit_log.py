@@ -264,5 +264,5 @@ class AuditLog:
         with self._lock:
             if self._backend == "sqlite":
                 row = self._conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()
-                return row[0]
+                return int(row[0])
             return len(self._entries)

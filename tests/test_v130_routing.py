@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
 
 from synapsekit.llm.base import BaseLLM, LLMConfig
@@ -14,7 +12,6 @@ from synapsekit.llm.cost_router import (
     RouterModelSpec,
 )
 from synapsekit.llm.fallback_chain import FallbackChain, FallbackChainConfig
-
 
 # ---------------------------------------------------------------------------
 # Helpers

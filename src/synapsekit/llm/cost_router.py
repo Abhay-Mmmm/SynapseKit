@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from ..observability.tracer import COST_TABLE
 from ..rag.facade import _make_llm
 from .base import BaseLLM, LLMConfig
 
-# Static quality scores (0–1) for known models.
+# Static quality scores (0-1) for known models.
 QUALITY_TABLE: dict[str, float] = {
     # OpenAI — GPT-4o family
     "gpt-4o": 0.90,

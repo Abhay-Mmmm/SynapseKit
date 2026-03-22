@@ -9,16 +9,6 @@ from .guardrails import (
     TopicRestrictor,
 )
 from .memory import AgentMemory, AgentStep
-from .pii_redactor import PIIRedactor, RedactionResult
-from .step_events import (
-    ActionEvent,
-    ErrorEvent,
-    FinalAnswerEvent,
-    ObservationEvent,
-    StepEvent,
-    ThoughtEvent,
-    TokenEvent,
-)
 from .multi import (
     Crew,
     CrewAgent,
@@ -30,8 +20,18 @@ from .multi import (
     Task,
     WorkerAgent,
 )
+from .pii_redactor import PIIRedactor, RedactionResult
 from .react import ReActAgent
 from .registry import ToolRegistry
+from .step_events import (
+    ActionEvent,
+    ErrorEvent,
+    FinalAnswerEvent,
+    ObservationEvent,
+    StepEvent,
+    ThoughtEvent,
+    TokenEvent,
+)
 from .tool_decorator import tool
 from .tools import (
     ArxivSearchTool,

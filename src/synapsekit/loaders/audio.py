@@ -84,7 +84,7 @@ class AudioLoader:
             if self._language:
                 kwargs["language"] = self._language
             transcript = client.audio.transcriptions.create(**kwargs)
-        return transcript.text
+        return str(transcript.text)
 
     def _transcribe_local(self) -> str:
         try:
@@ -100,4 +100,4 @@ class AudioLoader:
         if self._language:
             kwargs["language"] = self._language
         result = model.transcribe(str(self._path), **kwargs)
-        return result["text"]
+        return str(result["text"])

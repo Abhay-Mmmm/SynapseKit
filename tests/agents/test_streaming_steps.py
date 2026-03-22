@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from unittest.mock import AsyncMock, MagicMock
-
-import pytest
-
 from synapsekit.agents.base import BaseTool, ToolResult
 from synapsekit.agents.function_calling import FunctionCallingAgent
 from synapsekit.agents.react import ReActAgent
@@ -15,12 +10,10 @@ from synapsekit.agents.step_events import (
     ErrorEvent,
     FinalAnswerEvent,
     ObservationEvent,
-    StepEvent,
     ThoughtEvent,
     TokenEvent,
 )
 from synapsekit.llm.base import BaseLLM, LLMConfig
-
 
 # ---------------------------------------------------------------------------
 # Helpers

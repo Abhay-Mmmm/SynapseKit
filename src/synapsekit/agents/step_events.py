@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Union
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -56,11 +56,11 @@ class ErrorEvent:
     type: str = "error"
 
 
-StepEvent = Union[
-    ThoughtEvent,
-    ActionEvent,
-    ObservationEvent,
-    TokenEvent,
-    FinalAnswerEvent,
-    ErrorEvent,
-]
+StepEvent = (
+    ThoughtEvent
+    | ActionEvent
+    | ObservationEvent
+    | TokenEvent
+    | FinalAnswerEvent
+    | ErrorEvent
+)
