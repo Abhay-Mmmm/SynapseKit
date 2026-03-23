@@ -213,100 +213,140 @@ class TestZhipuLLM:
 
 
 # ------------------------------------------------------------------ #
-# CloudflareLLM
+# CloudflareLLM (based on tests by @adaumsilva, PR #320)
 # ------------------------------------------------------------------ #
 
 
+async def _line_iter(*lines: str):
+    for line in lines:
+        yield line
+
+
+def _mock_httpx_stream(lines: list[str]) -> MagicMock:
+    """Return a mocked httpx client whose .stream() is a usable async CM."""
+    mock_response = MagicMock()
+    mock_response.raise_for_status = MagicMock()
+    mock_response.aiter_lines = lambda: _line_iter(*lines)
+
+    mock_cm = MagicMock()
+    mock_cm.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_cm.__aexit__ = AsyncMock(return_value=False)
+
+    mock_client = MagicMock()
+    mock_client.stream.return_value = mock_cm
+    return mock_client
+
+
 class TestCloudflareLLM:
-    def test_construction_with_account_id(self):
+    @pytest.fixture
+    def llm(self):
         from synapsekit.llm.cloudflare import CloudflareLLM
 
-        llm = CloudflareLLM(
-            _config("cloudflare", "@cf/meta/llama-3-8b-instruct"), account_id="abc123"
+        return CloudflareLLM(
+            _config("cloudflare", "@cf/meta/llama-3.1-8b-instruct"), account_id="test-account"
         )
-        assert llm._account_id == "abc123"
 
-    def test_construction_with_base_url(self):
+    def test_endpoint_format(self, llm):
+        assert llm._endpoint() == (
+            "https://api.cloudflare.com/client/v4/accounts"
+            "/test-account/ai/run/@cf/meta/llama-3.1-8b-instruct"
+        )
+
+    def test_custom_base_url(self):
         from synapsekit.llm.cloudflare import CloudflareLLM
 
-        llm = CloudflareLLM(_config(), base_url="https://custom.workers.ai/v1")
-        assert llm._base_url == "https://custom.workers.ai/v1"
+        llm = CloudflareLLM(_config(), account_id="acct", base_url="https://custom.example.com")
+        assert llm._endpoint().startswith("https://custom.example.com")
 
-    def test_raises_without_account_id_or_base_url(self):
+    def test_raises_without_account_id(self):
         from synapsekit.llm.cloudflare import CloudflareLLM
 
         llm = CloudflareLLM(_config("cloudflare", "@cf/model"))
-        with patch.dict("sys.modules", {"openai": MagicMock()}):
-            llm._client = None
-            with pytest.raises(ValueError, match="account_id or base_url"):
-                llm._get_client()
+        with pytest.raises(ValueError, match="account_id"):
+            llm._get_client()
 
-    def test_import_error_without_openai(self):
-        with patch.dict("sys.modules", {"openai": None}):
-            from synapsekit.llm.cloudflare import CloudflareLLM
-
-            llm = CloudflareLLM(_config(), account_id="abc")
-            llm._client = None
-            with pytest.raises(ImportError, match="openai"):
-                llm._get_client()
-
-    @pytest.mark.asyncio
-    async def test_stream_yields_tokens(self):
-        from synapsekit.llm.cloudflare import CloudflareLLM
-
-        llm = CloudflareLLM(_config("cloudflare", "@cf/model"), account_id="abc")
-
-        mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=_mock_stream_response(["Cloud", "flare"])
-        )
-        llm._client = mock_client
-
-        tokens = []
-        async for t in llm.stream("hi"):
-            tokens.append(t)
-        assert tokens == ["Cloud", "flare"]
-
-    @pytest.mark.asyncio
-    async def test_generate(self):
-        from synapsekit.llm.cloudflare import CloudflareLLM
-
-        llm = CloudflareLLM(_config(), base_url="https://test.api/v1")
-
-        mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=_mock_stream_response(["Hi ", "there"])
-        )
-        llm._client = mock_client
-
-        result = await llm.generate("hello")
-        assert result == "Hi there"
-
-    @pytest.mark.asyncio
-    async def test_call_with_tools(self):
+    def test_import_error_without_httpx(self):
         from synapsekit.llm.cloudflare import CloudflareLLM
 
         llm = CloudflareLLM(_config(), account_id="abc")
+        with patch.dict("sys.modules", {"httpx": None}):
+            llm._client = None
+            with pytest.raises(ImportError, match="httpx"):
+                llm._get_client()
 
-        tc = MagicMock()
-        tc.id = "call_1"
-        tc.function.name = "search"
-        tc.function.arguments = json.dumps({"query": "test"})
+    @pytest.mark.asyncio
+    async def test_stream_yields_tokens(self, llm):
+        llm._client = _mock_httpx_stream([
+            'data: {"response": "Hello"}',
+            'data: {"response": " world"}',
+            "data: [DONE]",
+        ])
+        tokens = [t async for t in llm.stream("hi")]
+        assert tokens == ["Hello", " world"]
 
-        mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=_mock_tool_response(tool_calls=[tc])
-        )
-        llm._client = mock_client
+    @pytest.mark.asyncio
+    async def test_stream_skips_non_data_lines(self, llm):
+        llm._client = _mock_httpx_stream([
+            ": ping",
+            "",
+            'data: {"response": "Token"}',
+            "data: [DONE]",
+        ])
+        tokens = [t async for t in llm.stream("hi")]
+        assert tokens == ["Token"]
 
-        result = await llm._call_with_tools_impl(
-            [{"role": "user", "content": "search something"}],
-            [{"type": "function", "function": {"name": "search"}}],
-        )
-        assert result["tool_calls"][0]["name"] == "search"
-        assert result["tool_calls"][0]["arguments"] == {"query": "test"}
-        assert llm._input_tokens == 10
-        assert llm._output_tokens == 5
+    @pytest.mark.asyncio
+    async def test_stream_skips_invalid_json(self, llm):
+        llm._client = _mock_httpx_stream([
+            "data: not-json",
+            'data: {"response": "Good"}',
+            "data: [DONE]",
+        ])
+        tokens = [t async for t in llm.stream("hi")]
+        assert tokens == ["Good"]
+
+    @pytest.mark.asyncio
+    async def test_stream_stops_at_done(self, llm):
+        llm._client = _mock_httpx_stream([
+            'data: {"response": "A"}',
+            "data: [DONE]",
+            'data: {"response": "B"}',
+        ])
+        tokens = [t async for t in llm.stream("hi")]
+        assert tokens == ["A"]
+
+    @pytest.mark.asyncio
+    async def test_generate_collects_tokens(self, llm):
+        llm._client = _mock_httpx_stream([
+            'data: {"response": "Hello"}',
+            'data: {"response": " world"}',
+            "data: [DONE]",
+        ])
+        result = await llm.generate("hi")
+        assert result == "Hello world"
+
+    @pytest.mark.asyncio
+    async def test_output_tokens_tracked(self, llm):
+        llm._client = _mock_httpx_stream([
+            'data: {"response": "A"}',
+            'data: {"response": "B"}',
+            'data: {"response": "C"}',
+            "data: [DONE]",
+        ])
+        _ = [t async for t in llm.stream("hi")]
+        assert llm._output_tokens == 3
+
+    @pytest.mark.asyncio
+    async def test_stream_with_messages_passes_kwargs(self, llm):
+        llm._client = _mock_httpx_stream(['data: {"response": "x"}', "data: [DONE]"])
+        messages = [{"role": "user", "content": "q"}]
+        _ = [
+            t
+            async for t in llm.stream_with_messages(messages, temperature=0.9, max_tokens=512)
+        ]
+        payload = llm._client.stream.call_args[1]["json"]
+        assert payload["temperature"] == 0.9
+        assert payload["max_tokens"] == 512
 
 
 # ------------------------------------------------------------------ #
@@ -338,11 +378,7 @@ class TestFacadeAutoDetection:
     def test_cloudflare_detection(self):
         from synapsekit.rag.facade import _make_llm
 
-        mock_openai = MagicMock()
-        with (
-            patch.dict("sys.modules", {"openai": mock_openai}),
-            patch.dict("os.environ", {"CLOUDFLARE_ACCOUNT_ID": "abc123"}),
-        ):
+        with patch.dict("os.environ", {"CLOUDFLARE_ACCOUNT_ID": "abc123"}):
             from synapsekit.llm.cloudflare import CloudflareLLM
 
             llm = _make_llm("@cf/meta/llama-3-8b-instruct", "key", None, "sys", 0.2, 100)
