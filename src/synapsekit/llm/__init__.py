@@ -4,6 +4,7 @@ from .fallback_chain import FallbackChain, FallbackChainConfig
 from .structured import generate_structured
 
 __all__ = [
+    "AI21LLM",
     "AnthropicLLM",
     "AzureOpenAILLM",
     "BaseLLM",
@@ -13,7 +14,9 @@ __all__ = [
     "CohereLLM",
     "CostRouter",
     "CostRouterConfig",
+    "DatabricksLLM",
     "DeepSeekLLM",
+    "ErnieLLM",
     "FallbackChain",
     "FallbackChainConfig",
     "FireworksLLM",
@@ -36,6 +39,7 @@ __all__ = [
 ]
 
 _PROVIDERS = {
+    "AI21LLM": ".ai21",
     "OpenAILLM": ".openai",
     "AzureOpenAILLM": ".azure_openai",
     "AnthropicLLM": ".anthropic",
@@ -56,6 +60,8 @@ _PROVIDERS = {
     "MoonshotLLM": ".moonshot",
     "ZhipuLLM": ".zhipu",
     "CloudflareLLM": ".cloudflare",
+    "DatabricksLLM": ".databricks",
+    "ErnieLLM": ".ernie",
 }
 
 

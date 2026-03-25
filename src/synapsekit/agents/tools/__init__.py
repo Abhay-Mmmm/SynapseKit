@@ -14,6 +14,7 @@ from .google_calendar import GoogleCalendarTool
 from .graphql import GraphQLTool
 from .http_request import HTTPRequestTool
 from .human_input import HumanInputTool
+from .image_analysis import ImageAnalysisTool
 from .jira import JiraTool
 from .json_query import JSONQueryTool
 from .pdf_reader import PDFReaderTool
@@ -23,10 +24,12 @@ from .regex_tool import RegexTool
 from .sentiment import SentimentAnalysisTool
 from .shell import ShellTool
 from .slack import SlackTool
+from .speech_to_text import SpeechToTextTool
 from .sql_query import SQLQueryTool
 from .sql_schema import SQLSchemaInspectionTool
 from .summarization import SummarizationTool
 from .tavily_search import TavilySearchTool
+from .text_to_speech import TextToSpeechTool
 from .translation import TranslationTool
 from .vector_search import VectorSearchTool
 from .web_scraper import WebScraperTool
@@ -51,6 +54,7 @@ __all__ = [
     "GraphQLTool",
     "HTTPRequestTool",
     "HumanInputTool",
+    "ImageAnalysisTool",
     "JiraTool",
     "JSONQueryTool",
     "PDFReaderTool",
@@ -60,10 +64,12 @@ __all__ = [
     "SentimentAnalysisTool",
     "ShellTool",
     "SlackTool",
+    "SpeechToTextTool",
     "SQLQueryTool",
     "SQLSchemaInspectionTool",
     "SummarizationTool",
     "TavilySearchTool",
+    "TextToSpeechTool",
     "TranslationTool",
     "VectorSearchTool",
     "WebScraperTool",

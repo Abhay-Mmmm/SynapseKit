@@ -9,8 +9,11 @@ import pytest
 from synapsekit.agents.base import ToolResult
 from synapsekit.agents.tools.calculator import CalculatorTool
 from synapsekit.agents.tools.file_read import FileReadTool
+from synapsekit.agents.tools.image_analysis import ImageAnalysisTool
 from synapsekit.agents.tools.python_repl import PythonREPLTool
+from synapsekit.agents.tools.speech_to_text import SpeechToTextTool
 from synapsekit.agents.tools.sql_query import SQLQueryTool
+from synapsekit.agents.tools.text_to_speech import TextToSpeechTool
 from synapsekit.agents.tools.web_search import WebSearchTool
 
 # ------------------------------------------------------------------ #
@@ -318,3 +321,124 @@ class TestSQLQueryTool:
         tool = SQLQueryTool(db)
         r = await tool.run(query="SELECT * FROM users WHERE age > 100")
         assert "no rows" in r.output.lower()
+
+
+# ------------------------------------------------------------------ #
+# ImageAnalysisTool
+# ------------------------------------------------------------------ #
+
+
+class DummyLLM:
+    def __init__(self, provider: str = "openai"):
+        class _Config:
+            def __init__(self, provider: str):
+                self.provider = provider
+
+        self.config = _Config(provider)
+
+    async def generate_with_messages(self, messages, **kwargs):
+        return "A cat sitting on a chair."
+
+
+class TestImageAnalysisTool:
+    @pytest.mark.asyncio
+    async def test_requires_input(self):
+        tool = ImageAnalysisTool(DummyLLM())
+        r = await tool.run()
+        assert r.is_error
+
+    @pytest.mark.asyncio
+    async def test_analyze_from_path(self, tmp_path):
+        img = tmp_path / "img.png"
+        img.write_bytes(b"fake-image")
+        tool = ImageAnalysisTool(DummyLLM())
+        r = await tool.run(path=str(img))
+        assert not r.is_error
+        assert "cat" in r.output.lower()
+
+    @pytest.mark.asyncio
+    async def test_analyze_from_url(self):
+        tool = ImageAnalysisTool(DummyLLM())
+        r = await tool.run(image_url="https://example.com/image.png")
+        assert not r.is_error
+
+
+# ------------------------------------------------------------------ #
+# TextToSpeechTool
+# ------------------------------------------------------------------ #
+
+
+class DummyTTSResponse:
+    def stream_to_file(self, path):
+        from pathlib import Path
+
+        Path(path).write_bytes(b"audio-data")
+
+
+class DummySpeech:
+    def create(self, **kwargs):
+        return DummyTTSResponse()
+
+
+class DummyAudio:
+    def __init__(self):
+        self.speech = DummySpeech()
+
+
+class DummyOpenAI:
+    def __init__(self, api_key=None):
+        self.audio = DummyAudio()
+
+
+class TestTextToSpeechTool:
+    @pytest.mark.asyncio
+    async def test_requires_api_key(self, tmp_path):
+        with patch.dict("os.environ", {}, clear=True):
+            tool = TextToSpeechTool(api_key=None)
+            r = await tool.run(text="hello", output_path=str(tmp_path / "out.mp3"))
+            assert r.is_error
+
+    @pytest.mark.asyncio
+    async def test_synthesis(self, tmp_path):
+        mock_module = MagicMock()
+        mock_module.OpenAI = DummyOpenAI
+        with patch.dict("sys.modules", {"openai": mock_module}):
+            with patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}):
+                tool = TextToSpeechTool()
+                out = tmp_path / "out.mp3"
+                r = await tool.run(text="hello", output_path=str(out))
+                assert not r.is_error
+                assert out.exists()
+
+
+# ------------------------------------------------------------------ #
+# SpeechToTextTool
+# ------------------------------------------------------------------ #
+
+
+class DummyAudioLoader:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def aload(self):
+        from synapsekit.loaders.base import Document
+
+        return [Document(text="hello world")]
+
+
+class TestSpeechToTextTool:
+    @pytest.mark.asyncio
+    async def test_requires_path(self):
+        tool = SpeechToTextTool()
+        r = await tool.run(path="")
+        assert r.is_error
+
+    @pytest.mark.asyncio
+    async def test_transcription(self, tmp_path):
+        audio = tmp_path / "audio.mp3"
+        audio.write_bytes(b"fake-audio")
+        with patch("synapsekit.agents.tools.speech_to_text.AudioLoader", DummyAudioLoader):
+            tool = SpeechToTextTool()
+            r = await tool.run(path=str(audio))
+            assert not r.is_error
+            assert "hello world" in r.output
