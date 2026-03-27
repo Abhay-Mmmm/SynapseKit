@@ -24,6 +24,7 @@ from .agents import (
     AgentStep,
     ArxivSearchTool,
     BaseTool,
+    BingSearchTool,
     BraveSearchTool,
     CalculatorTool,
     ContentFilter,
@@ -346,6 +347,7 @@ __all__ = [
     "MCPToolAdapter",
     # Built-in tools
     "ArxivSearchTool",
+    "BingSearchTool",
     "BraveSearchTool",
     "CalculatorTool",
     "DateTimeTool",
