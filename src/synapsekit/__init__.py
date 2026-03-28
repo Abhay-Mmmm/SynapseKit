@@ -227,6 +227,8 @@ __all__ = [
     "RAGPipeline",
     "RAGConfig",
     # LLM
+    "AsyncLRUCache",
+    "DynamoDBCacheBackend",
     "BaseLLM",
     "LLMConfig",
     "CostRouter",
@@ -500,6 +502,8 @@ _LAZY_IMPORTS = {
     "QdrantVectorStore": "retrieval.qdrant",
     "PineconeVectorStore": "retrieval.pinecone",
     # LLM providers
+    "AsyncLRUCache": "llm._cache",
+    "DynamoDBCacheBackend": "llm._cache_dynamodb",
     "AzureOpenAILLM": "llm.azure_openai",
     "CerebrasLLM": "llm.cerebras",
     "VertexAILLM": "llm.vertex_ai",
