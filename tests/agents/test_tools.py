@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import platform
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -161,6 +162,70 @@ class TestPythonREPLTool:
     async def test_empty_code(self):
         r = await PythonREPLTool().run(code="")
         assert r.is_error
+
+    @pytest.mark.asyncio
+    async def test_custom_timeout(self):
+        """Test that timeout parameter can be customized."""
+        repl = PythonREPLTool(timeout=10.0)
+        assert repl.timeout == 10.0
+
+    @pytest.mark.asyncio
+    async def test_fast_execution_within_timeout(self):
+        """Test that fast code executes successfully within timeout."""
+        repl = PythonREPLTool(timeout=2.0)
+        r = await repl.run(code="print('quick')")
+        assert not r.is_error
+        assert "quick" in r.output
+
+    @pytest.mark.asyncio
+    async def test_timeout_on_infinite_loop(self):
+        """Test that infinite loops are terminated by timeout."""
+        repl = PythonREPLTool(timeout=1.0)
+        r = await repl.run(code="while True: pass")
+        assert r.is_error
+        assert "timed out" in r.error.lower()
+
+    @pytest.mark.asyncio
+    async def test_timeout_on_slow_operation(self):
+        """Test that slow operations are terminated by timeout."""
+        repl = PythonREPLTool(timeout=1.0)
+        r = await repl.run(code="import time; time.sleep(5)")
+        assert r.is_error
+        assert "timed out" in r.error.lower()
+
+    @pytest.mark.asyncio
+    @pytest.mark.skipif(
+        platform.system() != "Windows",
+        reason="Windows-specific namespace test"
+    )
+    async def test_windows_namespace_basic_persistence(self):
+        """Test that basic types persist in namespace on Windows."""
+        repl = PythonREPLTool()
+        await repl.run(code="x = 42")
+        r = await repl.run(code="print(x)")
+        assert not r.is_error
+        assert "42" in r.output
+
+    @pytest.mark.asyncio
+    @pytest.mark.skipif(
+        platform.system() != "Windows",
+        reason="Windows-specific namespace test"
+    )
+    async def test_windows_namespace_dict_persistence(self):
+        """Test that dicts/lists persist in namespace on Windows."""
+        repl = PythonREPLTool()
+        await repl.run(code="data = {'key': 'value', 'num': 123}")
+        r = await repl.run(code="print(data['key'])")
+        assert not r.is_error
+        assert "value" in r.output
+
+    def test_warning_logged_on_init(self, caplog):
+        """Test that security warning is logged when tool is created."""
+        import logging
+        with caplog.at_level(logging.WARNING):
+            PythonREPLTool()
+        assert any("arbitrary Python code" in record.message for record in caplog.records)
+        assert any("trusted environments" in record.message for record in caplog.records)
 
 
 # ------------------------------------------------------------------ #
