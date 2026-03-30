@@ -1,19 +1,19 @@
 <svg width="900" height="200" viewBox="0 0 900 200" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0d1117;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#161b22;stop-opacity:1" />
+      <stop offset="0%" style="stop-color:#f0f6ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:1" />
     </linearGradient>
     <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#58a6ff;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#bc8cff;stop-opacity:1" />
+      <stop offset="0%" style="stop-color:#0a7bbd;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
     </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-      <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <linearGradient id="logograd" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#0a7bbd;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
+    </linearGradient>
+    <filter id="softshadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#0a7bbd" flood-opacity="0.12"/>
     </filter>
   </defs>
 
@@ -21,7 +21,7 @@
   <rect width="900" height="200" fill="url(#bg)" rx="12"/>
 
   <!-- Subtle grid lines -->
-  <g stroke="#21262d" stroke-width="1" opacity="0.6">
+  <g stroke="#dde8f5" stroke-width="1" opacity="0.8">
     <line x1="0" y1="50" x2="900" y2="50"/>
     <line x1="0" y1="100" x2="900" y2="100"/>
     <line x1="0" y1="150" x2="900" y2="150"/>
@@ -35,29 +35,36 @@
   <!-- Accent line at top -->
   <rect width="900" height="3" fill="url(#accent)" rx="0"/>
 
-  <!-- Node dots (decorative graph) -->
-  <circle cx="72" cy="100" r="5" fill="#58a6ff" opacity="0.8" filter="url(#glow)"/>
-  <circle cx="120" cy="68" r="4" fill="#bc8cff" opacity="0.7"/>
-  <circle cx="120" cy="132" r="4" fill="#bc8cff" opacity="0.7"/>
-  <line x1="72" y1="100" x2="120" y2="68" stroke="#58a6ff" stroke-width="1.5" opacity="0.5"/>
-  <line x1="72" y1="100" x2="120" y2="132" stroke="#58a6ff" stroke-width="1.5" opacity="0.5"/>
+  <!-- Decorative graph nodes -->
+  <circle cx="72" cy="100" r="6" fill="#0a7bbd" opacity="0.9" filter="url(#softshadow)"/>
+  <circle cx="118" cy="68" r="4.5" fill="#7c3aed" opacity="0.8"/>
+  <circle cx="118" cy="132" r="4.5" fill="#7c3aed" opacity="0.8"/>
+  <circle cx="38" cy="78" r="3.5" fill="#0a7bbd" opacity="0.5"/>
+  <circle cx="38" cy="122" r="3.5" fill="#0a7bbd" opacity="0.5"/>
+  <line x1="72" y1="100" x2="118" y2="68" stroke="#0a7bbd" stroke-width="1.5" opacity="0.35"/>
+  <line x1="72" y1="100" x2="118" y2="132" stroke="#0a7bbd" stroke-width="1.5" opacity="0.35"/>
+  <line x1="38" y1="78" x2="72" y2="100" stroke="#7c3aed" stroke-width="1" opacity="0.25"/>
+  <line x1="38" y1="122" x2="72" y2="100" stroke="#7c3aed" stroke-width="1" opacity="0.25"/>
 
   <!-- Logo text -->
-  <text x="155" y="118" font-family="'SF Mono', 'Fira Code', monospace" font-size="52" font-weight="700" fill="url(#accent)" filter="url(#glow)">SynapseKit</text>
+  <text x="150" y="115" font-family="'SF Mono', 'Fira Code', monospace" font-size="52" font-weight="700" fill="url(#logograd)" filter="url(#softshadow)">SynapseKit</text>
 
   <!-- Tagline -->
-  <text x="156" y="148" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" fill="#8b949e" letter-spacing="0.5">Async-first Python framework for building LLM applications</text>
+  <text x="151" y="142" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" fill="#4b6080" letter-spacing="0.3">Production-grade Python framework for RAG pipelines, AI agents, and graph workflows</text>
 
-  <!-- Pill tags -->
-  <rect x="156" y="158" width="42" height="18" rx="9" fill="#1f2937" stroke="#374151" stroke-width="1"/>
-  <text x="177" y="171" font-family="monospace" font-size="10" fill="#58a6ff" text-anchor="middle">RAG</text>
+  <!-- Stat pills -->
+  <rect x="151" y="157" width="84" height="20" rx="10" fill="#e8f1fb" stroke="#b8d4f0" stroke-width="1"/>
+  <text x="193" y="171" font-family="'SF Mono', 'Fira Code', monospace" font-size="10" fill="#0a7bbd" text-anchor="middle">27 providers</text>
 
-  <rect x="206" y="158" width="55" height="18" rx="9" fill="#1f2937" stroke="#374151" stroke-width="1"/>
-  <text x="233" y="171" font-family="monospace" font-size="10" fill="#bc8cff" text-anchor="middle">Agents</text>
+  <rect x="243" y="157" width="64" height="20" rx="10" fill="#f0ebff" stroke="#d4c0f8" stroke-width="1"/>
+  <text x="275" y="171" font-family="'SF Mono', 'Fira Code', monospace" font-size="10" fill="#7c3aed" text-anchor="middle">41 tools</text>
 
-  <rect x="269" y="158" width="68" height="18" rx="9" fill="#1f2937" stroke="#374151" stroke-width="1"/>
-  <text x="303" y="171" font-family="monospace" font-size="10" fill="#3fb950" text-anchor="middle">Workflows</text>
+  <rect x="315" y="157" width="72" height="20" rx="10" fill="#e6f9f0" stroke="#a8e6c8" stroke-width="1"/>
+  <text x="351" y="171" font-family="'SF Mono', 'Fira Code', monospace" font-size="10" fill="#16a34a" text-anchor="middle">18 loaders</text>
 
-  <rect x="345" y="158" width="67" height="18" rx="9" fill="#1f2937" stroke="#374151" stroke-width="1"/>
-  <text x="378" y="171" font-family="monospace" font-size="10" fill="#f78166" text-anchor="middle">Streaming</text>
+  <rect x="395" y="157" width="82" height="20" rx="10" fill="#fff4e6" stroke="#f8d4a0" stroke-width="1"/>
+  <text x="436" y="171" font-family="'SF Mono', 'Fira Code', monospace" font-size="10" fill="#d97706" text-anchor="middle">async-native</text>
+
+  <rect x="485" y="157" width="66" height="20" rx="10" fill="#fef2f2" stroke="#fca5a5" stroke-width="1"/>
+  <text x="518" y="171" font-family="'SF Mono', 'Fira Code', monospace" font-size="10" fill="#dc2626" text-anchor="middle">2 hard deps</text>
 </svg>
