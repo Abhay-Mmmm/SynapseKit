@@ -1,47 +1,54 @@
 <svg width="900" height="200" viewBox="0 0 900 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="nodegrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22c55e"/>
+      <stop offset="100%" style="stop-color:#15803d"/>
+    </linearGradient>
+  </defs>
 
   <!-- Background: clean off-white -->
   <rect width="900" height="200" fill="#f8fafc" rx="12"/>
 
   <!-- Left green accent bar -->
-  <rect x="0" y="0" width="5" height="200" fill="#22c55e" rx="0"/>
+  <rect x="0" y="0" width="5" height="200" fill="#22c55e"/>
 
-  <!-- Subtle dot grid (very faint) -->
+  <!-- Subtle dot grid -->
   <pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
     <circle cx="10" cy="10" r="1" fill="#e2e8f0"/>
   </pattern>
   <rect x="5" y="0" width="895" height="200" fill="url(#dots)" opacity="0.9"/>
-
-  <!-- White content area over dots -->
   <rect x="5" y="0" width="895" height="200" fill="#f8fafc" opacity="0.7"/>
 
-  <!-- >> chevrons (logo mark) -->
-  <polyline points="36,82 58,100 36,118" stroke="#22c55e" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  <polyline points="58,82 80,100 58,118" stroke="#22c55e" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Graph node logo mark -->
+  <circle cx="55" cy="100" r="10" fill="url(#nodegrad)"/>
+  <circle cx="88" cy="76"  r="7"  fill="#16a34a" opacity="0.85"/>
+  <circle cx="88" cy="124" r="7"  fill="#16a34a" opacity="0.85"/>
+  <line x1="64" y1="95"  x2="82" y2="80"  stroke="url(#nodegrad)" stroke-width="2.2" stroke-linecap="round"/>
+  <line x1="64" y1="105" x2="82" y2="120" stroke="url(#nodegrad)" stroke-width="2.2" stroke-linecap="round"/>
 
   <!-- Vertical divider -->
-  <line x1="100" y1="72" x2="100" y2="128" stroke="#cbd5e1" stroke-width="1.5"/>
+  <line x1="113" y1="68" x2="113" y2="132" stroke="#cbd5e1" stroke-width="1.5"/>
 
-  <!-- SynapseKit wordmark — dark slate -->
-  <text x="118" y="119" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="50" font-weight="800" fill="#0f172a" letter-spacing="-2">SynapseKit</text>
+  <!-- SynapseKit wordmark -->
+  <text x="130" y="119" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="50" font-weight="800" fill="#0f172a" letter-spacing="-2">SynapseKit</text>
 
   <!-- Tagline -->
-  <text x="120" y="146" font-family="'SF Mono','Fira Code','Consolas',monospace" font-size="12.5" fill="#64748b" letter-spacing="0.2">async-native Python · RAG pipelines · agents · graph workflows · 2 hard deps</text>
+  <text x="132" y="146" font-family="'SF Mono','Fira Code','Consolas',monospace" font-size="12.5" fill="#64748b" letter-spacing="0.2">async-native Python · RAG pipelines · agents · graph workflows · 2 hard deps</text>
 
   <!-- Stat pills -->
-  <rect x="120" y="159" width="90"  height="22" rx="11" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
-  <text x="165" y="174" font-family="'SF Mono','Fira Code','Consolas',monospace" font-size="10" fill="#15803d" text-anchor="middle">27 providers</text>
+  <rect x="132" y="159" width="90"  height="22" rx="11" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+  <text x="177" y="174" font-family="'SF Mono','Fira Code','Consolas',monospace" font-size="10" fill="#15803d" text-anchor="middle">27 providers</text>
 
-  <rect x="218" y="159" width="68"  height="22" rx="11" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
-  <text x="252" y="174" font-family="'SF Mono','Fira Code','Consolas',monospace" font-size="10" fill="#15803d" text-anchor="middle">41 tools</text>
+  <rect x="230" y="159" width="68"  height="22" rx="11" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+  <text x="264" y="174" font-family="'SF Mono','Fira Code','Consolas',monospace" font-size="10" fill="#15803d" text-anchor="middle">41 tools</text>
 
-  <rect x="294" y="159" width="76"  height="22" rx="11" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
-  <text x="332" y="174" font-family="'SF Mono','Fira Code','Consolas',monospace" font-size="10" fill="#15803d" text-anchor="middle">18 loaders</text>
+  <rect x="306" y="159" width="76"  height="22" rx="11" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+  <text x="344" y="174" font-family="'SF Mono','Fira Code','Consolas',monospace" font-size="10" fill="#15803d" text-anchor="middle">18 loaders</text>
 
-  <rect x="378" y="159" width="100" height="22" rx="11" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1.5"/>
-  <text x="428" y="174" font-family="'SF Mono','Fira Code','Consolas',monospace" font-size="10" fill="#64748b" text-anchor="middle">9 vector stores</text>
+  <rect x="390" y="159" width="100" height="22" rx="11" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1.5"/>
+  <text x="440" y="174" font-family="'SF Mono','Fira Code','Consolas',monospace" font-size="10" fill="#64748b" text-anchor="middle">9 vector stores</text>
 
-  <rect x="486" y="159" width="88"  height="22" rx="11" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1.5"/>
-  <text x="530" y="174" font-family="'SF Mono','Fira Code','Consolas',monospace" font-size="10" fill="#64748b" text-anchor="middle">async-native</text>
+  <rect x="498" y="159" width="88"  height="22" rx="11" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1.5"/>
+  <text x="542" y="174" font-family="'SF Mono','Fira Code','Consolas',monospace" font-size="10" fill="#64748b" text-anchor="middle">async-native</text>
 
 </svg>
