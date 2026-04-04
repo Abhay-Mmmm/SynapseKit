@@ -84,9 +84,7 @@ class ConfluenceLoader:
                         delay = min(delay, 60)
                     await asyncio.sleep(delay)
                 else:
-                    raise RuntimeError(
-                        f"Failed to fetch page {page_id} after retries: {e}"
-                    ) from e
+                    raise RuntimeError(f"Failed to fetch page {page_id} after retries: {e}") from e
         raise RuntimeError(f"Failed to fetch page {page_id}")
 
     def _fetch_page_content_sync(self, page_id: str) -> dict[str, Any]:
@@ -114,14 +112,10 @@ class ConfluenceLoader:
                         delay = min(delay, 60)
                     time.sleep(delay)
                 else:
-                    raise RuntimeError(
-                        f"Failed to fetch page {page_id} after retries: {e}"
-                    ) from e
+                    raise RuntimeError(f"Failed to fetch page {page_id} after retries: {e}") from e
         raise RuntimeError(f"Failed to fetch page {page_id}")
 
-    async def _get_all_pages_in_space_async(
-        self, space_key: str
-    ) -> list[dict[str, Any]]:
+    async def _get_all_pages_in_space_async(self, space_key: str) -> list[dict[str, Any]]:
         """Get all pages in a space with automatic pagination (async)."""
         confluence = self._init_client()
         all_pages = []
@@ -160,18 +154,12 @@ class ConfluenceLoader:
                 error_msg = str(e).lower()
                 error_codes = ["401", "403", "404", "unauthorized", "forbidden"]
                 if any(x in error_msg for x in error_codes):
-                    raise RuntimeError(
-                        f"Failed to fetch pages from space {space_key}: {e}"
-                    ) from e
-                raise RuntimeError(
-                    f"Error fetching pages from space {space_key}: {e}"
-                ) from e
+                    raise RuntimeError(f"Failed to fetch pages from space {space_key}: {e}") from e
+                raise RuntimeError(f"Error fetching pages from space {space_key}: {e}") from e
 
         return all_pages
 
-    def _get_all_pages_in_space_sync(
-        self, space_key: str
-    ) -> list[dict[str, Any]]:
+    def _get_all_pages_in_space_sync(self, space_key: str) -> list[dict[str, Any]]:
         """Get all pages in a space with automatic pagination (sync)."""
         confluence = self._init_client()
         all_pages = []
@@ -205,12 +193,8 @@ class ConfluenceLoader:
                 error_msg = str(e).lower()
                 error_codes = ["401", "403", "404", "unauthorized", "forbidden"]
                 if any(x in error_msg for x in error_codes):
-                    raise RuntimeError(
-                        f"Failed to fetch pages from space {space_key}: {e}"
-                    ) from e
-                raise RuntimeError(
-                    f"Error fetching pages from space {space_key}: {e}"
-                ) from e
+                    raise RuntimeError(f"Failed to fetch pages from space {space_key}: {e}") from e
+                raise RuntimeError(f"Error fetching pages from space {space_key}: {e}") from e
 
         return all_pages
 
@@ -234,9 +218,7 @@ class ConfluenceLoader:
         if "history" in page:
             last_updated = page["history"].get("lastUpdated", {})
             if last_updated:
-                metadata["author"] = (
-                    last_updated.get("by", {}).get("displayName", "")
-                )
+                metadata["author"] = last_updated.get("by", {}).get("displayName", "")
                 metadata["last_modified"] = last_updated.get("when", "")
 
         return Document(text=text, metadata=metadata)
