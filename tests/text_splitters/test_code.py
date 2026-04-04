@@ -106,16 +106,7 @@ def test_code_splitter_exact_chunk_size():
 
 def test_code_splitter_python_functions():
     """Test splitting Python code on function boundaries."""
-    code = (
-        "def foo():\n"
-        "    return 1\n"
-        "\n"
-        "def bar():\n"
-        "    return 2\n"
-        "\n"
-        "def baz():\n"
-        "    return 3"
-    )
+    code = "def foo():\n    return 1\n\ndef bar():\n    return 2\n\ndef baz():\n    return 3"
     s = CodeSplitter(language="python", chunk_size=50, chunk_overlap=0)
     result = s.split(code)
     assert len(result) >= 2
@@ -125,16 +116,7 @@ def test_code_splitter_python_functions():
 
 def test_code_splitter_python_classes():
     """Test splitting Python code on class boundaries."""
-    code = (
-        "class Foo:\n"
-        "    pass\n"
-        "\n"
-        "class Bar:\n"
-        "    pass\n"
-        "\n"
-        "class Baz:\n"
-        "    pass"
-    )
+    code = "class Foo:\n    pass\n\nclass Bar:\n    pass\n\nclass Baz:\n    pass"
     s = CodeSplitter(language="python", chunk_size=40, chunk_overlap=0)
     result = s.split(code)
     assert len(result) >= 2
@@ -143,14 +125,7 @@ def test_code_splitter_python_classes():
 
 def test_code_splitter_python_mixed():
     """Test Python code with classes and functions."""
-    code = (
-        "class MyClass:\n"
-        "    def method(self):\n"
-        "        pass\n"
-        "\n"
-        "def standalone():\n"
-        "    pass"
-    )
+    code = "class MyClass:\n    def method(self):\n        pass\n\ndef standalone():\n    pass"
     s = CodeSplitter(language="python", chunk_size=60, chunk_overlap=0)
     result = s.split(code)
     assert len(result) >= 1
@@ -165,13 +140,7 @@ def test_code_splitter_python_mixed():
 def test_code_splitter_javascript_functions():
     """Test splitting JavaScript code on function boundaries."""
     code = (
-        "function foo() {\n"
-        "    return 1;\n"
-        "}\n"
-        "function bar() {\n"
-        "    return 2;\n"
-        "}\n"
-        "const x = () => 3;"
+        "function foo() {\n    return 1;\n}\nfunction bar() {\n    return 2;\n}\nconst x = () => 3;"
     )
     s = CodeSplitter(language="javascript", chunk_size=50, chunk_overlap=0)
     result = s.split(code)
@@ -181,14 +150,7 @@ def test_code_splitter_javascript_functions():
 
 def test_code_splitter_javascript_classes():
     """Test splitting JavaScript code on class boundaries."""
-    code = (
-        "class Foo {\n"
-        "    constructor() {}\n"
-        "}\n"
-        "class Bar {\n"
-        "    constructor() {}\n"
-        "}"
-    )
+    code = "class Foo {\n    constructor() {}\n}\nclass Bar {\n    constructor() {}\n}"
     s = CodeSplitter(language="javascript", chunk_size=50, chunk_overlap=0)
     result = s.split(code)
     assert len(result) >= 2
@@ -201,14 +163,7 @@ def test_code_splitter_javascript_classes():
 
 def test_code_splitter_go():
     """Test splitting Go code."""
-    code = (
-        "func foo() int {\n"
-        "    return 1\n"
-        "}\n"
-        "func bar() int {\n"
-        "    return 2\n"
-        "}"
-    )
+    code = "func foo() int {\n    return 1\n}\nfunc bar() int {\n    return 2\n}"
     s = CodeSplitter(language="go", chunk_size=40, chunk_overlap=0)
     result = s.split(code)
     assert len(result) >= 2
@@ -216,14 +171,7 @@ def test_code_splitter_go():
 
 def test_code_splitter_rust():
     """Test splitting Rust code."""
-    code = (
-        "fn foo() -> i32 {\n"
-        "    1\n"
-        "}\n"
-        "fn bar() -> i32 {\n"
-        "    2\n"
-        "}"
-    )
+    code = "fn foo() -> i32 {\n    1\n}\nfn bar() -> i32 {\n    2\n}"
     s = CodeSplitter(language="rust", chunk_size=40, chunk_overlap=0)
     result = s.split(code)
     assert len(result) >= 2
@@ -231,14 +179,7 @@ def test_code_splitter_rust():
 
 def test_code_splitter_java():
     """Test splitting Java code."""
-    code = (
-        "public class Foo {\n"
-        "    void bar() {}\n"
-        "}\n"
-        "public class Baz {\n"
-        "    void qux() {}\n"
-        "}"
-    )
+    code = "public class Foo {\n    void bar() {}\n}\npublic class Baz {\n    void qux() {}\n}"
     s = CodeSplitter(language="java", chunk_size=40, chunk_overlap=0)
     result = s.split(code)
     assert len(result) >= 2
@@ -247,14 +188,7 @@ def test_code_splitter_java():
 def test_code_splitter_cpp():
     """Test splitting C++ code."""
     code = (
-        "class Foo {\n"
-        "public:\n"
-        "    void bar() {}\n"
-        "};\n"
-        "class Baz {\n"
-        "public:\n"
-        "    void qux() {}\n"
-        "};"
+        "class Foo {\npublic:\n    void bar() {}\n};\nclass Baz {\npublic:\n    void qux() {}\n};"
     )
     s = CodeSplitter(language="cpp", chunk_size=50, chunk_overlap=0)
     result = s.split(code)
@@ -305,15 +239,7 @@ def test_code_splitter_long_single_function():
 
 def test_code_splitter_comments():
     """Test code with comments."""
-    code = (
-        "# Comment 1\n"
-        "def foo():\n"
-        "    pass\n"
-        "\n"
-        "# Comment 2\n"
-        "def bar():\n"
-        "    pass"
-    )
+    code = "# Comment 1\ndef foo():\n    pass\n\n# Comment 2\ndef bar():\n    pass"
     s = CodeSplitter(language="python", chunk_size=50, chunk_overlap=0)
     result = s.split(code)
     assert len(result) >= 1

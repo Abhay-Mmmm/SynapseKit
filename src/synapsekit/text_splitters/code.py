@@ -124,8 +124,7 @@ class CodeSplitter(BaseSplitter):
         """
         if language not in _VALID_LANGUAGES:
             raise ValueError(
-                f"Unsupported language: {language!r}. "
-                f"Valid options: {_VALID_LANGUAGES}"
+                f"Unsupported language: {language!r}. Valid options: {_VALID_LANGUAGES}"
             )
         if chunk_size <= 0:
             raise ValueError("chunk_size must be positive")
