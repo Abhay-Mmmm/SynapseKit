@@ -64,7 +64,7 @@ class ConfluenceLoader:
         for attempt in range(max_retries):
             try:
                 loop = asyncio.get_event_loop()
-                page = await loop.run_in_executor(
+                page: dict[str, Any] = await loop.run_in_executor(
                     None,
                     lambda: confluence.get_page_by_id(
                         page_id=page_id,
@@ -76,9 +76,7 @@ class ConfluenceLoader:
                 error_msg = str(e).lower()
                 error_codes = ["401", "403", "404", "unauthorized", "forbidden"]
                 if any(x in error_msg for x in error_codes):
-                    raise RuntimeError(
-                        f"Failed to fetch page {page_id}: {e}"
-                    ) from e
+                    raise RuntimeError(f"Failed to fetch page {page_id}: {e}") from e
 
                 if attempt < max_retries - 1:
                     delay = retry_delay * (2**attempt)
@@ -99,7 +97,7 @@ class ConfluenceLoader:
 
         for attempt in range(max_retries):
             try:
-                page = confluence.get_page_by_id(
+                page: dict[str, Any] = confluence.get_page_by_id(
                     page_id=page_id,
                     expand="body.storage,version,space,history.lastUpdated",
                 )
@@ -108,9 +106,7 @@ class ConfluenceLoader:
                 error_msg = str(e).lower()
                 error_codes = ["401", "403", "404", "unauthorized", "forbidden"]
                 if any(x in error_msg for x in error_codes):
-                    raise RuntimeError(
-                        f"Failed to fetch page {page_id}: {e}"
-                    ) from e
+                    raise RuntimeError(f"Failed to fetch page {page_id}: {e}") from e
 
                 if attempt < max_retries - 1:
                     delay = retry_delay * (2**attempt)
@@ -135,15 +131,16 @@ class ConfluenceLoader:
         while True:
             try:
                 loop = asyncio.get_event_loop()
-                result = await loop.run_in_executor(
-                    None,
-                    lambda s=start: confluence.get_all_pages_from_space(
+
+                def _fetch_pages(start_val: int) -> Any:
+                    return confluence.get_all_pages_from_space(
                         space=space_key,
-                        start=s,
+                        start=start_val,
                         limit=limit,
                         expand="body.storage,version,space,history.lastUpdated",
-                    ),
-                )
+                    )
+
+                result = await loop.run_in_executor(None, _fetch_pages, start)
 
                 if not result:
                     break
