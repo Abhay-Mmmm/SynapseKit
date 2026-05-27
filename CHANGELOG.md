@@ -14,6 +14,7 @@ SynapseKit uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`__version__` mismatch** — `synapsekit.__version__` was left at `1.7.0` after the v1.8.0 and v1.9.0 releases, causing `test_version_matches_pyproject` to fail on a fresh clone; bumped to `1.9.0` to match `pyproject.toml`
 - **`uv.lock` out of sync** — `prometheus-client` was added to the `observe` extra in v1.9.0 but the regenerated lock file was never committed; committed now so `uv sync` no longer produces a dirty diff
 - **Voice lazy imports** — `from .voice import …` in `__init__.py` was unconditional, meaning importing `synapsekit` always pulled in the full voice module tree; any future top-level dep in voice code would silently break `import synapsekit` for users without voice extras; all 17 voice exports (`VoicePipeline`, STT/TTS/VAD providers, types) moved to `_LAZY_IMPORTS` so they only load on first access; closes #720
+- **Ollama async stream** — `AsyncClient.chat()` returns an `AsyncIterator` but was not being awaited before iteration, causing `TypeError: 'async for' requires an object with __aiter__ method, got coroutine`; fixed by awaiting the call in `stream_with_messages`; closes #721
 
 ---
 

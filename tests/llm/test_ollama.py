@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import inspect
-import sys
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -18,11 +17,14 @@ def make_llm() -> OllamaLLM:
     return OllamaLLM(make_config())
 
 
-def make_async_gen_chat(contents: list[str]):
-    """Mock client.chat as a plain async generator (old ollama API — no await needed)."""
+def make_mock_chat(contents: list[str]):
     async def _chat(**kw):
-        for c in contents:
-            yield {"message": {"content": c}}
+        async def _gen():
+            for c in contents:
+                yield {"message": {"content": c}}
+
+        return _gen()
+
     return _chat
 
 
@@ -47,7 +49,7 @@ class TestOllamaLLMStreaming:
     async def test_stream_yields_tokens(self):
         llm = make_llm()
         mock_client = MagicMock()
-        mock_client.chat = make_async_gen_chat(["Hello", " world"])
+        mock_client.chat = make_mock_chat(["Hello", " world"])
         llm._client = mock_client
 
         tokens = [t async for t in llm.stream("hi")]
@@ -57,7 +59,7 @@ class TestOllamaLLMStreaming:
     async def test_stream_skips_empty_content(self):
         llm = make_llm()
         mock_client = MagicMock()
-        mock_client.chat = make_async_gen_chat(["Hello", "", " world"])
+        mock_client.chat = make_mock_chat(["Hello", "", " world"])
         llm._client = mock_client
 
         tokens = [t async for t in llm.stream("hi")]
@@ -68,7 +70,7 @@ class TestOllamaLLMStreaming:
     async def test_stream_with_messages_yields_tokens(self):
         llm = make_llm()
         mock_client = MagicMock()
-        mock_client.chat = make_async_gen_chat(["Token1", "Token2"])
+        mock_client.chat = make_mock_chat(["Token1", "Token2"])
         llm._client = mock_client
 
         messages = [{"role": "user", "content": "hello"}]
@@ -83,8 +85,12 @@ class TestOllamaLLMStreaming:
 
         async def _chat(**kw):
             captured_kw.update(kw)
-            return
-            yield  # make it an async generator
+
+            async def _gen():
+                return
+                yield
+
+            return _gen()
 
         mock_client.chat = _chat
         llm._client = mock_client
@@ -100,8 +106,12 @@ class TestOllamaLLMStreaming:
 
         async def _chat(**kw):
             captured_kw.update(kw)
-            return
-            yield  # make it an async generator
+
+            async def _gen():
+                return
+                yield
+
+            return _gen()
 
         mock_client.chat = _chat
         llm._client = mock_client
@@ -119,8 +129,12 @@ class TestOllamaLLMStreaming:
 
         async def _chat(**kw):
             captured_kw.update(kw)
-            return
-            yield  # make it an async generator
+
+            async def _gen():
+                return
+                yield
+
+            return _gen()
 
         mock_client.chat = _chat
         llm._client = mock_client
@@ -137,7 +151,7 @@ class TestOllamaLLMGenerate:
     async def test_generate_joins_tokens(self):
         llm = make_llm()
         mock_client = MagicMock()
-        mock_client.chat = make_async_gen_chat(["Hello", " world"])
+        mock_client.chat = make_mock_chat(["Hello", " world"])
         llm._client = mock_client
 
         result = await llm.generate("hi")
@@ -147,7 +161,7 @@ class TestOllamaLLMGenerate:
     async def test_token_counting(self):
         llm = make_llm()
         mock_client = MagicMock()
-        mock_client.chat = make_async_gen_chat(["a", "b", "c"])
+        mock_client.chat = make_mock_chat(["a", "b", "c"])
         llm._client = mock_client
 
         [t async for t in llm.stream("hi")]

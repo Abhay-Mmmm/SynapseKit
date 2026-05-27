@@ -32,7 +32,7 @@ class OllamaLLM(BaseLLM):
 
     async def stream_with_messages(self, messages: list[dict], **kw) -> AsyncGenerator[str]:
         client = self._get_client()
-        async for chunk in client.chat(
+        async for chunk in await client.chat(
             model=self.config.model,
             messages=messages,
             stream=True,

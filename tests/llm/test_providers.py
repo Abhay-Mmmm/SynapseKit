@@ -43,8 +43,10 @@ class TestOllamaLLM:
         ]
 
         async def mock_chat(**kw):
-            for c in chunks:
-                yield c
+            async def _gen():
+                for c in chunks:
+                    yield c
+            return _gen()
 
         mock_async_client = MagicMock()
         mock_async_client.chat = mock_chat
@@ -65,8 +67,10 @@ class TestOllamaLLM:
         chunks = [{"message": {"content": "ok"}}]
 
         async def mock_chat(**kw):
-            for c in chunks:
-                yield c
+            async def _gen():
+                for c in chunks:
+                    yield c
+            return _gen()
 
         mock_async_client = MagicMock()
         mock_async_client.chat = mock_chat

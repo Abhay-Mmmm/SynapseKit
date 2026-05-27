@@ -487,8 +487,10 @@ async def test_ollama_stream_yields_tokens():
     llm = OllamaLLM(_cfg(provider="ollama", model="llama3"))
 
     async def _fake_chat(model, messages, stream, options):
-        for content in ["Local", " model"]:
-            yield {"message": {"content": content}}
+        async def _gen():
+            for content in ["Local", " model"]:
+                yield {"message": {"content": content}}
+        return _gen()
 
     mock_client = MagicMock()
     mock_client.chat = _fake_chat
