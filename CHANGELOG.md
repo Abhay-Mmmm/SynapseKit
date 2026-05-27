@@ -9,6 +9,10 @@ SynapseKit uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+---
+
+## [1.9.1] — 2026-05-27
+
 ### Fixed
 
 - **`__version__` mismatch** — `synapsekit.__version__` was left at `1.7.0` after the v1.8.0 and v1.9.0 releases, causing `test_version_matches_pyproject` to fail on a fresh clone; bumped to `1.9.0` to match `pyproject.toml`
