@@ -8,12 +8,19 @@ All providers share the same mock pattern:
 from __future__ import annotations
 
 import inspect
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from synapsekit.llm.base import BaseLLM, LLMConfig
+from synapsekit.llm.base import LLMConfig
+from synapsekit.llm.cerebras import CerebrasLLM
+from synapsekit.llm.moonshot import MoonshotLLM
+from synapsekit.llm.novita import NovitaLLM
+from synapsekit.llm.perplexity import PerplexityLLM
+from synapsekit.llm.sambanova import SambaNovaLLM
+from synapsekit.llm.writer import WriterLLM
+from synapsekit.llm.xai import XaiLLM
+from synapsekit.llm.zhipu import ZhipuLLM
 
 
 def make_config(**kwargs) -> LLMConfig:
@@ -146,7 +153,9 @@ class TestGroqLLM:
         )
         mock_mod = self._mock_groq(mock_client)
         with patch.dict("sys.modules", {"groq": mock_mod}):
-            tokens = [t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])]
+            tokens = [
+                t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])
+            ]
         assert tokens == ["A", "B"]
 
     @pytest.mark.asyncio
@@ -290,12 +299,12 @@ class TestDeepSeekLLM:
     async def test_stream_with_messages_yields_tokens(self):
         llm = self._make()
         mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=_async_stream(_chunk("X"))
-        )
+        mock_client.chat.completions.create = AsyncMock(return_value=_async_stream(_chunk("X")))
         mock_mod = _mock_openai_module(mock_client)
         with patch.dict("sys.modules", {"openai": mock_mod}):
-            tokens = [t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])]
+            tokens = [
+                t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])
+            ]
         assert tokens == ["X"]
 
     @pytest.mark.asyncio
@@ -436,12 +445,12 @@ class TestOpenRouterLLM:
     async def test_stream_with_messages_yields_tokens(self):
         llm = self._make()
         mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=_async_stream(_chunk("hello"))
-        )
+        mock_client.chat.completions.create = AsyncMock(return_value=_async_stream(_chunk("hello")))
         mock_mod = _mock_openai_module(mock_client)
         with patch.dict("sys.modules", {"openai": mock_mod}):
-            tokens = [t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])]
+            tokens = [
+                t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])
+            ]
         assert tokens == ["hello"]
 
     @pytest.mark.asyncio
@@ -582,12 +591,12 @@ class TestTogetherLLM:
     async def test_stream_with_messages_yields_tokens(self):
         llm = self._make()
         mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=_async_stream(_chunk("tok"))
-        )
+        mock_client.chat.completions.create = AsyncMock(return_value=_async_stream(_chunk("tok")))
         mock_mod = _mock_openai_module(mock_client)
         with patch.dict("sys.modules", {"openai": mock_mod}):
-            tokens = [t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])]
+            tokens = [
+                t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])
+            ]
         assert tokens == ["tok"]
 
     @pytest.mark.asyncio
@@ -616,9 +625,7 @@ class TestTogetherLLM:
     async def test_generate_joins_tokens(self):
         llm = self._make()
         mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=_async_stream(_chunk("hello"))
-        )
+        mock_client.chat.completions.create = AsyncMock(return_value=_async_stream(_chunk("hello")))
         mock_mod = _mock_openai_module(mock_client)
         with patch.dict("sys.modules", {"openai": mock_mod}):
             result = await llm.generate("hi")
@@ -727,12 +734,12 @@ class TestFireworksLLM:
     async def test_stream_with_messages_yields_tokens(self):
         llm = self._make()
         mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=_async_stream(_chunk("spark"))
-        )
+        mock_client.chat.completions.create = AsyncMock(return_value=_async_stream(_chunk("spark")))
         mock_mod = _mock_openai_module(mock_client)
         with patch.dict("sys.modules", {"openai": mock_mod}):
-            tokens = [t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])]
+            tokens = [
+                t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])
+            ]
         assert tokens == ["spark"]
 
     @pytest.mark.asyncio
@@ -880,12 +887,12 @@ class TestAzureOpenAILLM:
     async def test_stream_with_messages_yields_tokens(self):
         llm = self._make()
         mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=_async_stream(_chunk("az"))
-        )
+        mock_client.chat.completions.create = AsyncMock(return_value=_async_stream(_chunk("az")))
         mock_mod = _mock_openai_module(mock_client, azure=True)
         with patch.dict("sys.modules", {"openai": mock_mod}):
-            tokens = [t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])]
+            tokens = [
+                t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])
+            ]
         assert tokens == ["az"]
 
     @pytest.mark.asyncio
@@ -914,9 +921,7 @@ class TestAzureOpenAILLM:
     async def test_generate_joins_tokens(self):
         llm = self._make()
         mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=_async_stream(_chunk("azure"))
-        )
+        mock_client.chat.completions.create = AsyncMock(return_value=_async_stream(_chunk("azure")))
         mock_mod = _mock_openai_module(mock_client, azure=True)
         with patch.dict("sys.modules", {"openai": mock_mod}):
             result = await llm.generate("hi")
@@ -1031,7 +1036,9 @@ def _run_basic_openai_compat_tests(provider_cls, token_counting="per_chunk"):
             )
             mock_mod = _mock_openai_module(mock_client)
             with patch.dict("sys.modules", {"openai": mock_mod}):
-                tokens = [t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])]
+                tokens = [
+                    t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])
+                ]
             assert tokens == ["msg"]
 
         @pytest.mark.asyncio
@@ -1135,8 +1142,6 @@ def _run_basic_openai_compat_tests(provider_cls, token_counting="per_chunk"):
 # ---------------------------------------------------------------------------
 
 
-from synapsekit.llm.moonshot import MoonshotLLM
-
 _MoonshotBase = _run_basic_openai_compat_tests(MoonshotLLM, token_counting="per_chunk")
 
 
@@ -1148,8 +1153,6 @@ class TestMoonshotLLM(_MoonshotBase):
 # ZhipuLLM
 # ---------------------------------------------------------------------------
 
-
-from synapsekit.llm.zhipu import ZhipuLLM
 
 _ZhipuBase = _run_basic_openai_compat_tests(ZhipuLLM, token_counting="per_chunk")
 
@@ -1163,8 +1166,6 @@ class TestZhipuLLM(_ZhipuBase):
 # ---------------------------------------------------------------------------
 
 
-from synapsekit.llm.sambanova import SambaNovaLLM
-
 _SambaNovaBase = _run_basic_openai_compat_tests(SambaNovaLLM, token_counting="per_chunk")
 
 
@@ -1176,8 +1177,6 @@ class TestSambaNovaLLM(_SambaNovaBase):
 # XaiLLM
 # ---------------------------------------------------------------------------
 
-
-from synapsekit.llm.xai import XaiLLM
 
 _XaiBase = _run_basic_openai_compat_tests(XaiLLM, token_counting="per_chunk")
 
@@ -1191,8 +1190,6 @@ class TestXaiLLM(_XaiBase):
 # ---------------------------------------------------------------------------
 
 
-from synapsekit.llm.novita import NovitaLLM
-
 _NovitaBase = _run_basic_openai_compat_tests(NovitaLLM, token_counting="per_chunk")
 
 
@@ -1204,8 +1201,6 @@ class TestNovitaLLM(_NovitaBase):
 # WriterLLM
 # ---------------------------------------------------------------------------
 
-
-from synapsekit.llm.writer import WriterLLM
 
 _WriterBase = _run_basic_openai_compat_tests(WriterLLM, token_counting="per_chunk")
 
@@ -1219,8 +1214,6 @@ class TestWriterLLM(_WriterBase):
 # ---------------------------------------------------------------------------
 
 
-from synapsekit.llm.perplexity import PerplexityLLM
-
 _PerplexityBase = _run_basic_openai_compat_tests(PerplexityLLM, token_counting="per_chunk")
 
 
@@ -1232,8 +1225,6 @@ class TestPerplexityLLM(_PerplexityBase):
 # CerebrasLLM
 # ---------------------------------------------------------------------------
 
-
-from synapsekit.llm.cerebras import CerebrasLLM
 
 _CerebrasBase = _run_basic_openai_compat_tests(CerebrasLLM, token_counting="per_chunk")
 
@@ -1306,12 +1297,12 @@ class TestLMStudioLLM:
     async def test_stream_with_messages_yields_tokens(self):
         llm = self._make()
         mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=_async_stream(_chunk("local"))
-        )
+        mock_client.chat.completions.create = AsyncMock(return_value=_async_stream(_chunk("local")))
         mock_mod = _mock_openai_module(mock_client)
         with patch.dict("sys.modules", {"openai": mock_mod}):
-            tokens = [t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])]
+            tokens = [
+                t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])
+            ]
         assert tokens == ["local"]
 
     @pytest.mark.asyncio
@@ -1461,12 +1452,12 @@ class TestVLLMLLM:
     async def test_stream_with_messages_yields_tokens(self):
         llm = self._make()
         mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=_async_stream(_chunk("local"))
-        )
+        mock_client.chat.completions.create = AsyncMock(return_value=_async_stream(_chunk("local")))
         mock_mod = _mock_openai_module(mock_client)
         with patch.dict("sys.modules", {"openai": mock_mod}):
-            tokens = [t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])]
+            tokens = [
+                t async for t in llm.stream_with_messages([{"role": "user", "content": "hi"}])
+            ]
         assert tokens == ["local"]
 
     @pytest.mark.asyncio

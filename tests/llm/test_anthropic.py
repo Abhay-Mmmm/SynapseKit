@@ -188,7 +188,9 @@ class TestAnthropicLLMToolCalling:
         llm = make_llm()
         mock_anthropic = MagicMock()
         mock_client = MagicMock()
-        mock_client.messages.create = AsyncMock(return_value=self._make_tool_response(has_tool=True))
+        mock_client.messages.create = AsyncMock(
+            return_value=self._make_tool_response(has_tool=True)
+        )
         mock_anthropic.AsyncAnthropic.return_value = mock_client
         tools = [
             {
@@ -281,7 +283,9 @@ class TestAnthropicLLMPrepareMessages:
             },
         ]
         _, user_msgs = llm._prepare_messages(messages)
-        tool_results = [m for m in user_msgs if m["role"] == "user" and isinstance(m["content"], list)]
+        tool_results = [
+            m for m in user_msgs if m["role"] == "user" and isinstance(m["content"], list)
+        ]
         assert len(tool_results) == 1
         block = tool_results[0]["content"][0]
         assert block["type"] == "tool_result"

@@ -891,4 +891,3 @@ class TestTopLevelImports:
         from synapsekit import PostgresCheckpointer
 
         assert PostgresCheckpointer is not None
-

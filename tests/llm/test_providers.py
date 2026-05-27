@@ -46,6 +46,7 @@ class TestOllamaLLM:
             async def _gen():
                 for c in chunks:
                     yield c
+
             return _gen()
 
         mock_async_client = MagicMock()
@@ -70,6 +71,7 @@ class TestOllamaLLM:
             async def _gen():
                 for c in chunks:
                     yield c
+
             return _gen()
 
         mock_async_client = MagicMock()

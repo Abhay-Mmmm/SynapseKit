@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import inspect
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -67,11 +66,13 @@ class TestCloudflareStreaming:
     @pytest.mark.asyncio
     async def test_stream_yields_tokens(self):
         llm = make_llm()
-        mock_client = _mock_httpx_stream([
-            'data: {"response": "Hello"}',
-            'data: {"response": " world"}',
-            "data: [DONE]",
-        ])
+        mock_client = _mock_httpx_stream(
+            [
+                'data: {"response": "Hello"}',
+                'data: {"response": " world"}',
+                "data: [DONE]",
+            ]
+        )
         mock_httpx = MagicMock()
         mock_httpx.AsyncClient.return_value = mock_client
         with patch.dict("sys.modules", {"httpx": mock_httpx}):
@@ -81,12 +82,14 @@ class TestCloudflareStreaming:
     @pytest.mark.asyncio
     async def test_stream_skips_empty_response(self):
         llm = make_llm()
-        mock_client = _mock_httpx_stream([
-            'data: {"response": "Hello"}',
-            'data: {"response": ""}',
-            'data: {"response": " world"}',
-            "data: [DONE]",
-        ])
+        mock_client = _mock_httpx_stream(
+            [
+                'data: {"response": "Hello"}',
+                'data: {"response": ""}',
+                'data: {"response": " world"}',
+                "data: [DONE]",
+            ]
+        )
         mock_httpx = MagicMock()
         mock_httpx.AsyncClient.return_value = mock_client
         with patch.dict("sys.modules", {"httpx": mock_httpx}):
@@ -97,11 +100,13 @@ class TestCloudflareStreaming:
     @pytest.mark.asyncio
     async def test_stream_stops_at_done(self):
         llm = make_llm()
-        mock_client = _mock_httpx_stream([
-            'data: {"response": "Hello"}',
-            "data: [DONE]",
-            'data: {"response": "should not appear"}',
-        ])
+        mock_client = _mock_httpx_stream(
+            [
+                'data: {"response": "Hello"}',
+                "data: [DONE]",
+                'data: {"response": "should not appear"}',
+            ]
+        )
         mock_httpx = MagicMock()
         mock_httpx.AsyncClient.return_value = mock_client
         with patch.dict("sys.modules", {"httpx": mock_httpx}):
@@ -112,12 +117,14 @@ class TestCloudflareStreaming:
     @pytest.mark.asyncio
     async def test_stream_skips_non_data_lines(self):
         llm = make_llm()
-        mock_client = _mock_httpx_stream([
-            ": keep-alive",
-            'data: {"response": "Hello"}',
-            "",
-            "data: [DONE]",
-        ])
+        mock_client = _mock_httpx_stream(
+            [
+                ": keep-alive",
+                'data: {"response": "Hello"}',
+                "",
+                "data: [DONE]",
+            ]
+        )
         mock_httpx = MagicMock()
         mock_httpx.AsyncClient.return_value = mock_client
         with patch.dict("sys.modules", {"httpx": mock_httpx}):
@@ -127,11 +134,13 @@ class TestCloudflareStreaming:
     @pytest.mark.asyncio
     async def test_stream_skips_malformed_json(self):
         llm = make_llm()
-        mock_client = _mock_httpx_stream([
-            "data: {not valid json}",
-            'data: {"response": "valid"}',
-            "data: [DONE]",
-        ])
+        mock_client = _mock_httpx_stream(
+            [
+                "data: {not valid json}",
+                'data: {"response": "valid"}',
+                "data: [DONE]",
+            ]
+        )
         mock_httpx = MagicMock()
         mock_httpx.AsyncClient.return_value = mock_client
         with patch.dict("sys.modules", {"httpx": mock_httpx}):
@@ -163,11 +172,13 @@ class TestCloudflareStreaming:
     @pytest.mark.asyncio
     async def test_generate_joins_tokens(self):
         llm = make_llm()
-        mock_client = _mock_httpx_stream([
-            'data: {"response": "Hello"}',
-            'data: {"response": " world"}',
-            "data: [DONE]",
-        ])
+        mock_client = _mock_httpx_stream(
+            [
+                'data: {"response": "Hello"}',
+                'data: {"response": " world"}',
+                "data: [DONE]",
+            ]
+        )
         mock_httpx = MagicMock()
         mock_httpx.AsyncClient.return_value = mock_client
         with patch.dict("sys.modules", {"httpx": mock_httpx}):
@@ -177,12 +188,14 @@ class TestCloudflareStreaming:
     @pytest.mark.asyncio
     async def test_token_counting(self):
         llm = make_llm()
-        mock_client = _mock_httpx_stream([
-            'data: {"response": "a"}',
-            'data: {"response": "b"}',
-            'data: {"response": "c"}',
-            "data: [DONE]",
-        ])
+        mock_client = _mock_httpx_stream(
+            [
+                'data: {"response": "a"}',
+                'data: {"response": "b"}',
+                'data: {"response": "c"}',
+                "data: [DONE]",
+            ]
+        )
         mock_httpx = MagicMock()
         mock_httpx.AsyncClient.return_value = mock_client
         with patch.dict("sys.modules", {"httpx": mock_httpx}):

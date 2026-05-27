@@ -490,6 +490,7 @@ async def test_ollama_stream_yields_tokens():
         async def _gen():
             for content in ["Local", " model"]:
                 yield {"message": {"content": content}}
+
         return _gen()
 
     mock_client = MagicMock()
