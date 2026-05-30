@@ -52,7 +52,10 @@ wikipedia = ["wikipedia-api>=0.6"]
 arxiv = ["arxiv>=2.0"]
 html = ["beautifulsoup4>=4.12", "lxml>=6.1.0"]
 web = ["httpx>=0.27", "beautifulsoup4>=4.12"]
-chroma = ["chromadb>=0.5"]
+# CVE-2026-45829: pre-auth code injection in chromadb server mode (>=1.0,<=1.5.9, no patch yet).
+# SynapseKit uses chromadb as an embedded client — server mode is not invoked — so exposure is
+# limited. Pin upper bound here to force a lock file update when a patched release ships.
+chroma = ["chromadb>=0.5,<1.6.0"]
 faiss = ["faiss-cpu>=1.7"]
 qdrant = ["qdrant-client>=1.9"]
 pinecone = ["pinecone>=3.0"]
@@ -161,7 +164,7 @@ all = [
     "beautifulsoup4>=4.12",
     "lxml>=6.1.0",
     "httpx>=0.27",
-    "chromadb>=0.5",
+    "chromadb>=0.5,<1.6.0",
     "faiss-cpu>=1.7",
     "qdrant-client>=1.9",
     "pinecone>=3.0",
