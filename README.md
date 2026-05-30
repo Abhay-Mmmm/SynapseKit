@@ -96,11 +96,19 @@ print(my_agent.run("What's the weather in Tokyo?"))
 | Hard dependencies | **2** | 50+ | 20+ |
 | Install size | **~5 MB** | ~200 MB+ | ~100 MB+ |
 | Async-native | **✅ Default** | ⚠️ Partial | ⚠️ Partial |
+| Streaming | **✅ Default** | ⚠️ Varies | ⚠️ Varies |
 | Cost tracking | **✅ Built-in** | ❌ LangSmith (SaaS) | ❌ No |
-| Evaluation | **✅ CLI + GitHub Action** | ❌ LangSmith (SaaS) | ✅ Built-in |
-| Graph workflows | **✅ Built-in** | ✅ LangGraph (separate pkg) | ❌ No |
+| Evaluation / EvalCI | **✅ CLI + GitHub Action** | ❌ LangSmith (SaaS) | ⚠️ Built-in |
+| Graph workflows | **✅ Built-in** | ⚠️ LangGraph (separate pkg) | ❌ No |
+| Agent federation | **✅ Built-in** | ❌ No | ❌ No |
+| Reasoning LLMs | **✅ Unified adapter** | ⚠️ Manual | ⚠️ Manual |
+| Structured output | **✅ Provider-agnostic** | ⚠️ Provider-specific | ⚠️ Provider-specific |
+| Agent memory backends | **✅ 4 built-in** | ⚠️ Community plugins | ⚠️ Community plugins |
+| Observability | **✅ Prometheus + Grafana** | ❌ No | ❌ No |
+| Type safety | **✅ Strict dataclasses** | ⚠️ Partial | ⚠️ Partial |
 | LLM providers | **33** | 38+ | 20+ |
 | Stack traces | **Your code** | Framework internals | Framework internals |
+| License | **Apache 2.0** | MIT | MIT |
 
 </div>
 
