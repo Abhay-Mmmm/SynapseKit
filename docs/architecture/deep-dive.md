@@ -1,6 +1,6 @@
 # Architecture Deep Dive
 
-**SynapseKit v0.9+ � Internal Design Explained**
+**SynapseKit v0.9+ â Internal Design Explained**
 
 This document is written for **power users, contributors, and curious engineers** who want to understand how SynapseKit works under the hood.
 
@@ -73,7 +73,7 @@ compiled = graph.compile()
 
 The `CompiledGraph` class:
 - Builds an adjacency list for O(1) edge lookup
-- Executes in **waves** � parallel nodes in the same wave run concurrently using `asyncio.gather()`
+- Executes in **waves** â parallel nodes in the same wave run concurrently using `asyncio.gather()`
 - Supports checkpointing, human-in-the-loop (`GraphInterrupt`), and resumability
 - Uses a versioned checkpointing system to support schema migrations
 
