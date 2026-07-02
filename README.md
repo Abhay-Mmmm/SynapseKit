@@ -116,6 +116,42 @@ LangChain has more raw integrations and more tutorials. That's not what SynapseK
 
 ---
 
+## Computer Use
+
+`ComputerUseAgent` lets a model work through a screen provider instead of an API. It observes the current screen, asks a provider for one normalized action, applies a `SafetyPolicy`, executes the action, and records a replayable session log.
+
+```python
+from synapsekit import (
+    AnthropicComputerUseProvider,
+    BrowserScreenProvider,
+    ComputerUseAgent,
+    SafetyPolicy,
+)
+
+agent = ComputerUseAgent(
+    provider=AnthropicComputerUseProvider(client=anthropic_client, model="claude-3-5-sonnet"),
+    screen=BrowserScreenProvider(headless=True, allowed_domains=["example.com"]),
+    safety=SafetyPolicy(
+        confirm_before=["delete", "send", "purchase", "navigate_to_new_domain"],
+        forbidden_apps=["keychain", "1password"],
+        record_session=True,
+    ),
+    recorder="runs/computer-use-session.jsonl",
+)
+
+result = await agent.run("Open the legacy form, enter the invoice total, and stop.")
+```
+
+Install optional runtime dependencies only when you need real screen control:
+
+```bash
+pip install "synapsekit[computer-use]"
+```
+
+Read [Computer Use Safety](docs/computer-use-safety.md) before running this against real desktops, browsers, credentials, or production systems.
+
+---
+
 ## Who is it for?
 
 SynapseKit is for Python developers who want to ship LLM features without fighting their framework.
@@ -222,11 +258,33 @@ Output parsers (JSON, Pydantic, List), prompt templates (standard, chat, few-sho
 **🕸 Agent Federation** *(new)*<br/>
 `AgentFederation` routes prompts across a registry of agents using round-robin, capacity-aware, or cost-aware strategies. `InMemoryAgentRegistry` and `RedisAgentRegistry` track agents with heartbeat-based health checks and stale pruning. Tag and tool-based discovery filters. `LocalAgentClient` for in-process agents, custom `AgentClient` for remote. `pip install synapsekit[redis]` for Redis registry.
 
+`AgentSwarm` adds market-based routing on top of the same registry. Agents bid with estimated cost, quality, and confidence; `MarketPolicy` supports sealed-bid, Vickrey, English, multi-winner, and coalition auctions; `Reputation` tracks per-agent, per-task-category outcomes. Deterministic tests and demos can set `seed=42`. See `examples/agent_swarm_market.py`.
+
+```python
+from synapsekit import AgentSwarm, BidStrategy, MarketPolicy
+
+swarm = AgentSwarm(
+    agents=[researcher, coder, critic, planner, summarizer],
+    market=MarketPolicy(
+        bid_strategy=BidStrategy.cost_quality_pareto(),
+        auction_type="sealed_bid",
+        budget_per_task=10_000,
+        seed=42,
+    ),
+)
+
+result = await swarm.execute("Write a market analysis on quantum compute startups")
+print(result.winners)
+print(swarm.trace_to_mermaid())
+```
+
 </td>
 <td width="50%">
 
 **🔁 Continuous Fine-Tuning Pipeline** *(new)*<br/>
 `ContinuousTrainer` closes the loop from production feedback to a deployed fine-tuned model. `FeedbackCollector` batches samples async; `TrainingDataGenerator` exports JSONL and preference pairs; `OpenAIFineTuneProvider` / `AnthropicFineTuneProvider` submit and poll jobs; `ABTestRouter` sticky-routes traffic by SHA-256 bucket; `AutoRolloutManager` stages rollout with latency/cost/quality regression guards; `CostBenefitAnalyzer` projects ROI and payback days. `pip install synapsekit[training]`.
+
+`SelfImprovingAgent` closes the loop for agent configuration. It observes `FeedbackCollector` traces, proposes signed `AgentConfigPatch` diffs, validates prompt candidates with `EvalSuite` / `PromptOptimizer`, and canaries accepted changes through `AutoRolloutManager`. Patches are eval-blocked by default and reversible via `agent.rollback(patch_id)`. Inspect the audit trail with `agent.evolution_history()` or `synapsekit agent inspect-evolution <agent-id>`. See `examples/self_improving_agent.py`.
 
 </td>
 </tr>
@@ -306,6 +364,33 @@ synapsekit bench --publish my_evals/ --name myorg/rag-finance
 ```
 
 Docs: [docs/evalhub.md](docs/evalhub.md)
+
+---
+
+## Neuro-Symbolic Verification
+
+SynapseKit can pair a reasoning model with a symbolic solver so the model proposes
+formal constraints and the solver verifies the answer.
+
+```python
+from synapsekit import NeuroSymbolicAgent, ReasoningLLM, Z3Backend
+
+agent = NeuroSymbolicAgent(
+    llm=ReasoningLLM("claude-3-7-sonnet-latest", api_key="..."),
+    verifier=Z3Backend(),
+    on_unverified="retry",
+    max_proposals=3,
+)
+
+result = await agent.solve("Find an integer x where x > 3 and x < 5.")
+
+print(result.answer)
+print(result.verified)
+print(result.proof.model)
+```
+
+Install solver integrations with `pip install synapsekit[symbolic]`. Prolog
+verification uses the `swipl` executable when `PrologBackend` is selected.
 
 ---
 
