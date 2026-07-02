@@ -9,13 +9,38 @@ SynapseKit uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`SelfImprovingAgent`** — eval-gated agent config evolution; observes `FeedbackCollector` traces, proposes signed `AgentConfigPatch` diffs, validates prompt candidates with `EvalSuite` / `PromptOptimizer`, and canaries accepted changes through `AutoRolloutManager`; patches are eval-blocked by default and reversible via `agent.rollback(patch_id)`; audit trail via `agent.evolution_history()` or `synapsekit agent inspect-evolution <agent-id>`; `AgentConfigPatch`, `AgentConfigSnapshot`, `AgentEvolutionAuditLog`, `MetaAnalyzer`, `EvalSuite` exported at top level; closes #732; contributed by [@DhruvGarg111](https://github.com/DhruvGarg111)
+- **`AgentSwarm`** — market-based agent routing on top of `AgentFederation`; agents bid with estimated cost, quality, and confidence; `MarketPolicy` supports sealed-bid, Vickrey, English, multi-winner, and coalition auctions; `Reputation` tracks per-agent per-task-category outcomes with UCB and Thompson-sampling exploration; deterministic runs via `seed=42`; `RoutingStrategy.MARKET` integrates with existing `AgentFederation.run()`; `pip install synapsekit[redis]` for Redis-backed reputation; closes #734; contributed by [@DhruvGarg111](https://github.com/DhruvGarg111)
+- **`ComputerUseAgent`** — provider-agnostic screen observation and action execution; normalises Anthropic, OpenAI, and open-source computer-use providers to a unified `ComputerAction` schema; `SafetyPolicy` enforces forbidden apps, domain allow/block lists, keyword confirmation triggers, and PII-in-text detection; `@requires_human_confirmation` decorator; JSONL session recording with `RecordedSession` replay; `BrowserScreenProvider` (Playwright) and `PyAutoGUIScreenProvider` adapters; `pip install synapsekit[computer-use]`; closes #737; contributed by [@DhruvGarg111](https://github.com/DhruvGarg111)
+- **`NeuroSymbolicAgent`** — neuro-symbolic reasoning layer; LLM extracts formal constraints, symbolic backends solve/verify them, callers receive structured `ProofTrace` metadata; optional `Z3Backend`, `SympyBackend`, `MiniZincBackend`, `PrologBackend`; `@verified_tool` decorator gates tool execution on proof success; `on_unverified` policy (`"retry"`, `"reject"`, `"flag"`); `pip install synapsekit[symbolic]`; closes #733; contributed by [@DhruvGarg111](https://github.com/DhruvGarg111)
+- **`WorldModelRAG`** — temporal knowledge-graph RAG; LLM or heuristic extraction builds a world model of entities, relations, events, and causal links; `InMemoryWorldGraphBackend` stores nodes/edges with temporal validity windows; `HybridWorldModelRetriever` fuses graph and vector results with reciprocal rank fusion; `CausalLinker` scores candidate edges; Mermaid subgraph export; closes #735; contributed by [@DhruvGarg111](https://github.com/DhruvGarg111)
+- **`EdgeRuntime`** — local-first inference with explicit policy-gated cloud fallback; routes locally by default; `FallbackPolicy` configures cloud escalation on context overflow, unsupported tools, user opt-in, or local errors; PII redaction before cloud fallback via existing `PIIRedactor` path; `ONNXEmbeddings` and `MLXLLM` providers behind `synapsekit[onnx]` / `synapsekit[mlx]` extras; `synapsekit edge list / pull / quantize` CLI commands; closes #736; contributed by [@DhruvGarg111](https://github.com/DhruvGarg111)
+- **Comparison matrix** — `docs/comparison-matrix.md` with sourced feature comparison against LangChain, LlamaIndex, Haystack, and DSPy; quarterly update workflow in `.github/workflows/comparison-matrix-update.yml`; closes #670; contributed by [@DhruvGarg111](https://github.com/DhruvGarg111)
+
+### Fixed
+
+- **Vickrey auction settlement** — `AgentSwarm` was computing settlement price from the second-highest-*score* agent's cost instead of the second-highest *bid price*; corrected to sort by `estimated_cost` descending before picking the second entry
+- **Swarm winner tie-breaking** — `_select_winners` sort was non-deterministic when scores and costs were equal; `agent_id` added as final tiebreaker
+- **Coalition underflow** — `CoalitionFormer.form()` silently returned a 1-element list when fewer agents than `max_size` were available; now raises `LookupError`
+- **Zero-cost agent reputation** — `_synthetic_bid` used `avg_cost or cost_multiplier` (truthiness check); `0.0` cost was falsy and always fell back to the multiplier; `ReputationSnapshot.avg_cost` changed to `float | None`
+- **`@requires_human_confirmation` broke async functions** — decorator always returned a sync wrapper, making decorated `async def` functions lose their coroutine identity; now dispatches an `async def` wrapper for coroutine functions
+- **`SafetyPolicy.confirm_before=[]`** — empty list was falsy, causing it to fall through to the default `_DANGEROUS_WORDS` keyword list even when the caller explicitly passed an empty list to disable keyword confirmation; fixed with `is not None` guard
+- **`EdgeRuntime.stream` error recovery** — on local error the fallback text was yielded character-by-character (`for token in str`); fixed to `yield fallback_str` as a single chunk
+- **`SympyBackend` timeout non-functional** — inner `async def _solve()` called blocking `eval()` without yielding; `asyncio.wait_for` cannot cancel a running C-extension; moved `eval()` to `asyncio.to_thread()` matching the `Z3Backend` pattern
+- **`_parse_json_objects` backtick stripping** — `cleaned.strip("\`")` stripped all leading/trailing backtick characters rather than just the triple-backtick fence; replaced with `[3:]` / `[:-3]` slicing
+- **`AgentConfigPatch.to_dict()` side effect** — was calling `self.sign()` as part of serialisation, mutating the patch on every `to_dict()` call; removed auto-sign
+- **`_run_agent_async` missing `iscoroutinefunction` guard** — the `arun` branch assumed any `arun` attribute was a coroutine; added `inspect.iscoroutinefunction(agent.arun)` guard
+- **`ConstraintExtractor` bare `JSONDecodeError`** — fallback regex `json.loads` call was not wrapped; now raises `VerificationFailure` with a clear message
+
 ### Docs
 
 - **Architecture deep dive** — long-form internals doc covering async runtime model, RAG flow, graph engine, agent loop, plugin system, and extension points; aimed at contributors and power users; contributed by [@DhruvGarg111](https://github.com/DhruvGarg111); closes #673
 
-### Fixes
+### CI
 
-- **Welcome workflow** — fixed `TypeError: github.rest[...].listForRepo is not a function` in the CI welcome bot; removed LinkedIn ask from welcome messages
+- **Discord label routing** — new `.github/workflows/discord-labels.yml` posts to a per-label Discord channel whenever an issue or PR is opened, labeled, or reopened; 14 topic and release-milestone channels; missing secrets are skipped gracefully; closes #753
 
 ---
 
