@@ -12,7 +12,7 @@ from contextlib import suppress
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from .._compat import run_sync
 from ..llm.base import BaseLLM, LLMConfig
@@ -505,7 +505,10 @@ class KnowledgeMesh:
                 from ..retrieval.sqlite_vec import SQLiteVecStore
 
                 self._vector_backend = "sqlite_vec"
-                return SQLiteVecStore(embeddings, db_path=str(self.config.expanded_db_path()))
+                return SQLiteVecStore(
+                    cast(Any, embeddings),
+                    db_path=str(self.config.expanded_db_path()),
+                )
             except ImportError:
                 if self.config.vector_backend == "sqlite_vec":
                     raise

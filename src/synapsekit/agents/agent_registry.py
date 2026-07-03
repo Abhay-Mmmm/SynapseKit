@@ -134,7 +134,7 @@ class ReputationSnapshot:
             task_category=data.get("task_category", "general"),
             attempts=data.get("attempts", 0),
             wins=data.get("wins", 0),
-            avg_cost=data.get("avg_cost", None),
+            avg_cost=data.get("avg_cost"),
             mean_quality=data.get("mean_quality", 0.5),
             mean_reward=data.get("mean_reward", 0.0),
             quality_alpha=data.get("quality_alpha", 1.0),
@@ -197,7 +197,7 @@ class Reputation:
             snapshot.mean_quality = quality
             snapshot.mean_reward = reward
         else:
-            snapshot.avg_cost = self._ema(snapshot.avg_cost, cost, learning_rate)
+            snapshot.avg_cost = self._ema(snapshot.avg_cost or cost, cost, learning_rate)
             snapshot.mean_quality = self._ema(snapshot.mean_quality, quality, learning_rate)
             snapshot.mean_reward = self._ema(snapshot.mean_reward, reward, learning_rate)
 

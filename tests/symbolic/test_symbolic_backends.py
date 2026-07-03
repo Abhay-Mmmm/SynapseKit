@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from synapsekit.symbolic import ConstraintSet, PrologBackend, SympyBackend, Z3Backend
+from synapsekit.symbolic import ConstraintSet, PrologBackend, SympyBackend
 
 
 def test_z3_missing_dependency_error_message_is_actionable():

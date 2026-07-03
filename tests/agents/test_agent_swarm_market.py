@@ -2,7 +2,15 @@ import inspect
 
 import pytest
 
-from synapsekit import AgentSwarm, AuctionResult, AuctionType, Bid, BidStrategy, MarketPolicy, SwarmResult
+from synapsekit import (
+    AgentSwarm,
+    AuctionResult,
+    AuctionType,
+    Bid,
+    BidStrategy,
+    MarketPolicy,
+    SwarmResult,
+)
 from synapsekit.agents import AgentFederation, AgentMetadata, InMemoryAgentRegistry, Reputation
 from synapsekit.agents.agent_swarm import CoalitionFormer
 
