@@ -28,9 +28,7 @@ class FakeMLXModule:
     def generate(self, model, tokenizer, *, prompt: str, max_tokens: int, temp: float) -> str:
         return "hello"
 
-    def stream_generate(
-        self, model, tokenizer, *, prompt: str, max_tokens: int, temp: float
-    ):
+    def stream_generate(self, model, tokenizer, *, prompt: str, max_tokens: int, temp: float):
         yield _FakeTokenItem("hello ")
         yield _FakeTokenItem("world")
 

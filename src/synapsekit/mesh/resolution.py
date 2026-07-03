@@ -39,7 +39,9 @@ class CrossProjectEntityResolver(EntityResolver):
 
     @classmethod
     def _entity_keys(cls, value: str) -> set[str]:
-        return {self_key for alias in cls._concept_aliases(value) if (self_key := cls._normalize(alias))}
+        return {
+            self_key for alias in cls._concept_aliases(value) if (self_key := cls._normalize(alias))
+        }
 
     @staticmethod
     def _concept_aliases(value: str) -> set[str]:

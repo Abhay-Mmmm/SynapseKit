@@ -283,9 +283,9 @@ class MeshIndexStore:
 
         files = self._conn.execute("SELECT COUNT(*) FROM mesh_files").fetchone()[0]
         chunks = self._conn.execute("SELECT COUNT(*) FROM mesh_chunks").fetchone()[0]
-        active = self._conn.execute(
-            "SELECT COUNT(*) FROM mesh_chunks WHERE active = 1"
-        ).fetchone()[0]
+        active = self._conn.execute("SELECT COUNT(*) FROM mesh_chunks WHERE active = 1").fetchone()[
+            0
+        ]
         return int(files), int(chunks), int(active)
 
     def _ensure_schema(self) -> None:

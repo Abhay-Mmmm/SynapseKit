@@ -15,7 +15,9 @@ def test_knowledge_mesh_incremental_query_and_duplicates(tmp_path: Path) -> None
             "# Auth\n\nAuthService uses FastAPI middleware for login.\n",
             encoding="utf-8",
         )
-        retry_text = "# Retry\n\nRetry decorator handles exponential backoff for transient requests.\n"
+        retry_text = (
+            "# Retry\n\nRetry decorator handles exponential backoff for transient requests.\n"
+        )
         (root / "retry-a.md").write_text(retry_text, encoding="utf-8")
         (root / "retry-b.md").write_text(retry_text, encoding="utf-8")
 

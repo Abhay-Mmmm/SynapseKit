@@ -1067,7 +1067,9 @@ class WorldModelRAG:
         )
 
     @classmethod
-    def kuzu(cls, path: str | Path, resolver: EntityResolver | None = None) -> KuzuWorldGraphBackend:
+    def kuzu(
+        cls, path: str | Path, resolver: EntityResolver | None = None
+    ) -> KuzuWorldGraphBackend:
         """Create an optional Kuzu graph backend for ``WorldModelRAG``."""
 
         return KuzuWorldGraphBackend(path, resolver=resolver)
