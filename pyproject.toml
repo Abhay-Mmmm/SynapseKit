@@ -64,6 +64,8 @@ weaviate = ["weaviate-client>=4.0"]
 milvus = ["pymilvus>=2.4"]
 lancedb = ["lancedb>=0.5"]
 sqlite-vec = ["sqlite-vec>=0.1"]
+kuzu = ["kuzu>=0.8"]
+mesh = ["sqlite-vec>=0.1", "kuzu>=0.8"]
 cassandra = ["cassandra-driver>=3.28"]
 clickhouse = ["clickhouse-connect>=0.7"]
 duckdb-vector = ["duckdb>=0.10"]
@@ -183,6 +185,7 @@ all = [
     "pymilvus>=2.4",
     "lancedb>=0.5",
     "sqlite-vec>=0.1",
+    "kuzu>=0.8",
     "pgvector>=0.2",
     "ollama>=0.2",
     "ai21>=2.0",
