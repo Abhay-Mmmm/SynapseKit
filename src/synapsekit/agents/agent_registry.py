@@ -134,7 +134,7 @@ class ReputationSnapshot:
             task_category=data.get("task_category", "general"),
             attempts=data.get("attempts", 0),
             wins=data.get("wins", 0),
-            avg_cost=data.get("avg_cost", None),
+            avg_cost=data.get("avg_cost"),
             mean_quality=data.get("mean_quality", 0.5),
             mean_reward=data.get("mean_reward", 0.0),
             quality_alpha=data.get("quality_alpha", 1.0),

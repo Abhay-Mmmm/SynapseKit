@@ -26,11 +26,9 @@ class FakeMLXModule:
         return object(), object()
 
     def generate(self, model, tokenizer, *, prompt: str, max_tokens: int, temp: float) -> str:
-        return f"hello"
+        return "hello"
 
-    def stream_generate(
-        self, model, tokenizer, *, prompt: str, max_tokens: int, temp: float
-    ):
+    def stream_generate(self, model, tokenizer, *, prompt: str, max_tokens: int, temp: float):
         yield _FakeTokenItem("hello ")
         yield _FakeTokenItem("world")
 
@@ -66,7 +64,7 @@ def test_missing_mlx_lm_raises() -> None:
 @pytest.mark.asyncio
 async def test_generate_uses_mlx_backend() -> None:
     original = sys.modules.get("mlx_lm")
-    fake = _inject_fake_mlx()
+    _inject_fake_mlx()
     try:
         result = await make_llm().generate("hi")
     finally:
