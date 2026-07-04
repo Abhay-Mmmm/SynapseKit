@@ -1,5 +1,7 @@
 from .agent_memory import AgentMemory
 from .backends import (
+    GraphAgentMemory,
+    GraphMemoryBackend,
     InMemoryMemoryBackend,
     PostgresMemoryBackend,
     RedisMemoryBackend,
@@ -23,6 +25,8 @@ __all__ = [
     "AgentMemory",
     "BaseMemoryBackend",
     "MemoryRecord",
+    "GraphAgentMemory",
+    "GraphMemoryBackend",
     "InMemoryMemoryBackend",
     "SQLiteMemoryBackend",
     "RedisMemoryBackend",
