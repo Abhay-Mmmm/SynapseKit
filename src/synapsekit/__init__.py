@@ -270,6 +270,7 @@ from .loaders.web import WebLoader
 from .loaders.wikipedia import WikipediaLoader
 from .mcp import MCPClient, MCPServer, MCPToolAdapter
 from .memory import AgentMemory as PersistentAgentMemory
+from .memory import GraphAgentMemory, GraphMemoryBackend
 from .memory.buffer import BufferMemory
 from .memory.conversation import ConversationMemory
 from .memory.entity import EntityMemory
@@ -321,6 +322,17 @@ from .retrieval.hyde import HyDERetriever
 from .retrieval.mongodb_atlas import MongoDBAtlasVectorStore
 from .retrieval.multi_step import MultiStepRetriever
 from .retrieval.parent_document import ParentDocumentRetriever
+from .retrieval.property_graph import (
+    ExtractedEntity,
+    ExtractedRelationship,
+    GraphVectorStore,
+    KnowledgeGraphExtraction,
+    KnowledgeGraphExtractor,
+    Neo4jPropertyGraphBackend,
+    NetworkXPropertyGraphBackend,
+    PropertyGraphEdge,
+    PropertyGraphNode,
+)
 from .retrieval.query_decomposition import QueryDecompositionRetriever
 from .retrieval.rag_fusion import RAGFusionRetriever
 from .retrieval.retriever import Retriever
@@ -457,6 +469,7 @@ __all__ = [
     # Vector stores
     "VectorStore",
     "InMemoryVectorStore",
+    "GraphVectorStore",
     "ChromaVectorStore",
     "FAISSVectorStore",
     "LanceDBVectorStore",
@@ -488,6 +501,14 @@ __all__ = [
     "SentenceWindowRetriever",
     "GraphRAGRetriever",
     "KnowledgeGraph",
+    "KnowledgeGraphExtraction",
+    "KnowledgeGraphExtractor",
+    "NetworkXPropertyGraphBackend",
+    "Neo4jPropertyGraphBackend",
+    "PropertyGraphNode",
+    "PropertyGraphEdge",
+    "ExtractedEntity",
+    "ExtractedRelationship",
     "StepBackRetriever",
     "WorldModelRAG",
     "ExtractionPolicy",
@@ -514,6 +535,8 @@ __all__ = [
     "CircuitState",
     # Memory / observability
     "PersistentAgentMemory",
+    "GraphAgentMemory",
+    "GraphMemoryBackend",
     "BufferMemory",
     "ConversationMemory",
     "EntityMemory",
