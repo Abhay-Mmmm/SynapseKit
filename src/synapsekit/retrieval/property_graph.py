@@ -8,7 +8,7 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from itertools import pairwise
-from typing import Any, Literal, Protocol, cast
+from typing import Any, Literal, Protocol
 
 from ..embeddings.backend import SynapsekitEmbeddings
 from ..llm.base import BaseLLM
@@ -709,7 +709,7 @@ class GraphVectorStore(VectorStore):
         )
         seed_ids = self._seed_ids(query, vector_results)
         if not seed_ids:
-            return cast(list[dict], vector_results[:top_k])
+            return vector_results[:top_k]
 
         nodes, edges = self.graph.traverse(
             seed_ids,
@@ -734,7 +734,7 @@ class GraphVectorStore(VectorStore):
             fetch_k=fetch_k,
             metadata_filter=metadata_filter,
         )
-        return cast(list[dict], results)
+        return results
 
     def save(self, path: str) -> None:
         self.vector_store.save(path)
