@@ -135,7 +135,7 @@ class PIIRedactor:
 
     def redact_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Recursively redact all string values in a payload dict."""
-        return self._redact_value(payload)  # type: ignore[return-value]
+        return self._redact_value(payload)  # type: ignore[no-any-return]
 
     def _redact_value(self, value: Any) -> Any:
         if isinstance(value, str):

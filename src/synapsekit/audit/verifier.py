@@ -370,6 +370,9 @@ def _verify_selective(
 
         public_key, finding = _resolve_public_key(signature["key_id"], manifest_keys, trusted_keys)
         if public_key is None:
+            assert (
+                finding is not None
+            )  # _resolve_public_key always sets one when public_key is None
             findings.append((finding[0], f"record {i} ({rec.event_id}): {finding[1]}"))
             continue
         try:
@@ -629,6 +632,9 @@ def verify(
 
         public_key, finding = _resolve_public_key(signature["key_id"], manifest_keys, trusted_keys)
         if public_key is None:
+            assert (
+                finding is not None
+            )  # _resolve_public_key always sets one when public_key is None
             findings.append((finding[0], f"batch [{start}:{end}]: {finding[1]}"))
             continue
 

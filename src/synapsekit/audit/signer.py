@@ -9,11 +9,15 @@ from __future__ import annotations
 
 import base64
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from .metrics import AuditMetrics, default_metrics
 from .types import Signature
+
+if TYPE_CHECKING:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 
 class SigningProvider(ABC):
@@ -68,7 +72,7 @@ class Ed25519SigningProvider(SigningProvider):
             private_key = Ed25519PrivateKey.generate()
         elif isinstance(private_key, bytes | bytearray):
             private_key = Ed25519PrivateKey.from_private_bytes(bytes(private_key))
-        self._private_key = private_key
+        self._private_key: Ed25519PrivateKey = private_key
         self.key_id = key_id or self.public_key_b64()[:16]
 
     def sign(self, data: bytes) -> bytes:
@@ -168,9 +172,10 @@ class KMSSigningProvider(SigningProvider):
     downstream never needs to know which cloud is in play.
     """
 
-    def __init__(self, *, key_id: str, algorithm: str) -> None:
+    def __init__(self, *, key_id: str, algorithm: str, client: Any = None) -> None:
         self.key_id = key_id
         self.algorithm = algorithm
+        self._client = client
 
 
 class AWSKMSSigningProvider(KMSSigningProvider):
@@ -309,7 +314,7 @@ class SigningPolicy:
         flush_interval_seconds: float = 5.0,
         metrics: AuditMetrics | None = None,
     ) -> SigningPolicy:
-        providers: dict[str, type[KMSSigningProvider]] = {
+        providers: dict[str, Callable[..., KMSSigningProvider]] = {
             "aws": AWSKMSSigningProvider,
             "azure": AzureKeyVaultSigningProvider,
             "gcp": GCPKMSSigningProvider,

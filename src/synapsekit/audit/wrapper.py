@@ -229,8 +229,11 @@ class VerifiableAgent:
     ) -> None:
         if is_error:
             kind = EventKind.ERROR
+        elif paired:
+            assert result_kind is not None  # paired implies a result_kind was supplied
+            kind = result_kind
         else:
-            kind = result_kind if paired else call_kind
+            kind = call_kind
         if paired:
             # The response/result is a child of its own call event.
             self.tracer.record(
