@@ -155,6 +155,12 @@ def _add_edge_parser(subparsers: argparse._SubParsersAction) -> None:  # type: i
     build_edge_parser(subparsers)
 
 
+def _add_audit_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
+    from .audit import build_audit_parser
+
+    build_audit_parser(subparsers)
+
+
 def _add_agent_parser(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
     p = subparsers.add_parser("agent", help="Inspect and manage SynapseKit agents")
     agent_sub = p.add_subparsers(dest="agent_command")
@@ -203,6 +209,7 @@ def main(argv: list[str] | None = None) -> None:
     _add_agent_parser(subparsers)
     _add_ui_parser(subparsers)
     _add_plugin_parser(subparsers)
+    _add_audit_parser(subparsers)
 
     args = parser.parse_args(argv)
 
@@ -256,6 +263,10 @@ def main(argv: list[str] | None = None) -> None:
         from .plugins import run_plugin
 
         run_plugin(args)
+    elif args.command == "audit":
+        from .audit import run_audit
+
+        run_audit(args)
     else:
         parser.print_help()
         sys.exit(1)

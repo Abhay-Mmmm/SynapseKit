@@ -30,6 +30,10 @@ dependencies = [
     # Pin to patched versions for high-severity advisories
     "pillow>=12.2.0",
     "pyasn1>=0.6.3",
+    # Ed25519 is the default (and only always-available) audit-bundle
+    # signing algorithm — it must work out of the box, not only via an
+    # opt-in extra.
+    "cryptography>=42",
 ]
 
 [project.urls]
