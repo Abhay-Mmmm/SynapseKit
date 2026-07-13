@@ -42,9 +42,7 @@ class MemoryPatch:
     rationale: str
     evidence_refs: list[str] = field(default_factory=list)
     patch_id: str = field(default_factory=lambda: uuid.uuid4().hex[:16])
-    created_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     status: PatchStatus = "pending"
     category: MemoryFileCategory = "general"
     session_id: str | None = None
@@ -94,12 +92,8 @@ class OccurrenceRecord:
 
     fact_key: str
     count: int = 0
-    first_seen: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
-    last_seen: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    first_seen: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    last_seen: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     session_ids: list[str] = field(default_factory=list)
     sample_evidence: list[str] = field(default_factory=list)
 

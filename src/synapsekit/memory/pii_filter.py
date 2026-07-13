@@ -74,9 +74,7 @@ class MemoryPIIFilter:
         redact: bool = True,
     ) -> None:
         active_types = detect or list(self._REDACTION_PATTERNS.keys())
-        self._detector = PIIDetector(
-            detect=[t for t in active_types if t in PIIDetector._PATTERNS]
-        )
+        self._detector = PIIDetector(detect=[t for t in active_types if t in PIIDetector._PATTERNS])
         self._redact = redact
         self._compiled: dict[str, tuple[re.Pattern[str], str]] = {}
         for name, (pattern, replacement) in self._REDACTION_PATTERNS.items():
@@ -104,8 +102,7 @@ class MemoryPIIFilter:
                 original_content=content,
                 filtered_content=content,
                 redaction_types=[
-                    v.split("(")[1].rstrip(")").split(":")[0]
-                    for v in check_result.violations
+                    v.split("(")[1].rstrip(")").split(":")[0] for v in check_result.violations
                 ],
             )
 

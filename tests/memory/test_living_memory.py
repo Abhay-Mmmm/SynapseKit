@@ -210,7 +210,10 @@ async def test_living_memory_orchestration(tmp_path: Path) -> None:
     # 3. Apply patch
     applied = lm.apply(patch.patch_id)
     assert applied.status == "applied"
-    assert claude_md.read_text(encoding="utf-8") == "# Core Memory\n- The user prefers pytest for tests.\n"
+    assert (
+        claude_md.read_text(encoding="utf-8")
+        == "# Core Memory\n- The user prefers pytest for tests.\n"
+    )
 
     # 4. Revert patch
     reverted = lm.revert(patch.patch_id)

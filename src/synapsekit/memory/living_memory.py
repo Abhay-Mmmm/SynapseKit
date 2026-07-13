@@ -230,9 +230,7 @@ class LivingMemory:
             patch = resolved
 
         if patch.status not in ("pending", "approved"):
-            raise ValueError(
-                f"Cannot apply patch {patch.patch_id!r} with status {patch.status!r}"
-            )
+            raise ValueError(f"Cannot apply patch {patch.patch_id!r} with status {patch.status!r}")
 
         # Validate the file hasn't changed
         applicable, reason = self._diff.validate_patch_applicable(
@@ -242,9 +240,7 @@ class LivingMemory:
             patch.status = "conflict"
             patch.metadata["conflict_reason"] = reason
             self._store.update(patch)
-            raise RuntimeError(
-                f"Cannot apply patch {patch.patch_id}: {reason}"
-            )
+            raise RuntimeError(f"Cannot apply patch {patch.patch_id}: {reason}")
 
         self._apply_patch_to_file(patch)
         return patch
@@ -256,9 +252,7 @@ class LivingMemory:
             raise KeyError(f"Patch {patch_id!r} not found")
 
         if patch.status != "applied":
-            raise ValueError(
-                f"Cannot revert patch {patch_id!r} with status {patch.status!r}"
-            )
+            raise ValueError(f"Cannot revert patch {patch_id!r} with status {patch.status!r}")
 
         self._diff.revert_to_content(patch.file_path, patch.before_content)
         patch.status = "reverted"
@@ -334,9 +328,7 @@ class LivingMemory:
         self._tracker.record_occurrence(fact_key, session_id, evidence)
 
         # Check occurrence threshold
-        if not self._tracker.has_reached_threshold(
-            fact_key, self._occurrence_threshold
-        ):
+        if not self._tracker.has_reached_threshold(fact_key, self._occurrence_threshold):
             current_count = self._tracker.get_count(fact_key)
             _log.debug(
                 "Fact %r has not reached threshold (%d/%d) — deferring",
@@ -349,9 +341,7 @@ class LivingMemory:
         # Determine target file
         content_text = str(proposal.get("proposed_addition", ""))
         category = self._router.categorize(content_text)
-        target_path = self._router.resolve_target_path(
-            category, list(file_contents.keys())
-        )
+        target_path = self._router.resolve_target_path(category, list(file_contents.keys()))
 
         # Build the patch
         before = file_contents.get(target_path, "")

@@ -47,9 +47,7 @@ def _run_review(args: argparse.Namespace) -> None:
     print(f"{'ID':<18} {'File':<30} {'Category':<12} {'Created':<22} Rationale")
     print("-" * 100)
     for p in pending:
-        rationale_preview = (
-            p.rationale[:40] + "…" if len(p.rationale) > 40 else p.rationale
-        )
+        rationale_preview = p.rationale[:40] + "…" if len(p.rationale) > 40 else p.rationale
         print(
             f"{p.patch_id:<18} {p.file_path:<30} {p.category:<12} "
             f"{p.created_at[:19]:<22} {rationale_preview}"
@@ -138,9 +136,7 @@ def _run_log(args: argparse.Namespace) -> None:
     print(f"{'ID':<18} {'Status':<12} {'File':<30} {'Created':<22} Rationale")
     print("-" * 100)
     for p in patches:
-        rationale_preview = (
-            p.rationale[:35] + "…" if len(p.rationale) > 35 else p.rationale
-        )
+        rationale_preview = p.rationale[:35] + "…" if len(p.rationale) > 35 else p.rationale
         print(
             f"{p.patch_id:<18} {p.status:<12} {p.file_path:<30} "
             f"{p.created_at[:19]:<22} {rationale_preview}"

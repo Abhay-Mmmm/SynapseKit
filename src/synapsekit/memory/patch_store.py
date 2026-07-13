@@ -53,10 +53,7 @@ class PatchStore:
         limit: int | None = None,
     ) -> list[MemoryPatch]:
         """Return patches filtered by status, newest first, deduplicated by ID."""
-        result = [
-            p for p in reversed(self._patches)
-            if status is None or p.status == status
-        ]
+        result = [p for p in reversed(self._patches) if status is None or p.status == status]
         # Deduplicate by patch_id (keep latest)
         seen: set[str] = set()
         deduped: list[MemoryPatch] = []
@@ -123,10 +120,7 @@ class OccurrenceTracker:
 
     def get_mature_facts(self, min_occurrences: int = 3) -> list[OccurrenceRecord]:
         """Return facts that have been observed at least *min_occurrences* times."""
-        return [
-            r for r in self._records.values()
-            if r.count >= min_occurrences
-        ]
+        return [r for r in self._records.values() if r.count >= min_occurrences]
 
     def has_reached_threshold(self, fact_key: str, threshold: int = 3) -> bool:
         """Check whether a fact has met the occurrence threshold."""
