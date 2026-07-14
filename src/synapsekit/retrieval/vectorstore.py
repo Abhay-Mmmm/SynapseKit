@@ -153,7 +153,10 @@ class InMemoryVectorStore(VectorStore):
             },
         )
         try:
-            if not self._texts:
+            if top_k <= 0 or not self._texts:
+                # top_k=0 must return no docs. ``np.argpartition(scores, -0)[-0:]``
+                # is ``[0:]`` (since -0 == 0), which would otherwise return every
+                # document — including in the metadata-filtered branch.
                 end_span(search_span, attributes={"vector_store.results": 0})
                 return []
 
@@ -222,7 +225,7 @@ class InMemoryVectorStore(VectorStore):
             },
         )
         try:
-            if not self._texts:
+            if top_k <= 0 or not self._texts:
                 end_span(search_span, attributes={"vector_store.results": 0})
                 return []
 
