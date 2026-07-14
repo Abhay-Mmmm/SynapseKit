@@ -2,22 +2,92 @@ from __future__ import annotations
 
 import asyncio
 import configparser
+import math
 import os
+import re
 
 from .base import Document
 
 _SENSITIVE_KEYWORDS = {"password", "secret", "token", "api_key", "key", "auth"}
 _SUPPORTED_EXTENSIONS = {".env", ".ini", ".cfg", ".toml"}
 
+# A URL/DSN carrying inline credentials, e.g. postgres://user:pass@host:5432/db
+# or redis://:password@host. The userinfo (before '@') is what leaks secrets.
+_URL_WITH_USERINFO = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.\-]*://[^/\s@]*:[^/\s@]*@")
 
-# Simple keyword-based detection; not exhaustive but avoids exposing common secrets
+# Well-known secret token prefixes (GitHub, OpenAI/Stripe, AWS, Slack, Google...).
+_SECRET_PREFIXES = (
+    "sk-",
+    "sk_live_",
+    "sk_test_",
+    "pk_live_",
+    "rk_live_",
+    "ghp_",
+    "gho_",
+    "ghu_",
+    "ghs_",
+    "ghr_",
+    "github_pat_",
+    "xox",  # Slack: xoxb-, xoxp-, xoxa-, xoxs-
+    "AKIA",  # AWS access key id
+    "ASIA",  # AWS temporary access key id
+    "AIza",  # Google API key
+    "ya29.",  # Google OAuth token
+    "glpat-",  # GitLab personal access token
+)
+
+
+def _shannon_entropy(s: str) -> float:
+    if not s:
+        return 0.0
+    counts: dict[str, int] = {}
+    for ch in s:
+        counts[ch] = counts.get(ch, 0) + 1
+    n = len(s)
+    return -sum((c / n) * math.log2(c / n) for c in counts.values())
+
+
+def _looks_like_secret_value(value: str) -> bool:
+    """Heuristic: does *value* itself look like a credential?
+
+    Deliberately conservative so ordinary config (paths, numbers, hostnames,
+    booleans) is preserved. Flags: URLs/DSNs with inline userinfo, known secret
+    prefixes, and long high-entropy opaque strings.
+    """
+    v = value.strip().strip("\"'")
+    if not v:
+        return False
+    # Credentials embedded in a connection string / URL.
+    if _URL_WITH_USERINFO.search(v):
+        return True
+    # Known provider token prefixes.
+    if v.startswith(_SECRET_PREFIXES):
+        return True
+    # High-entropy opaque token: long, no whitespace, restricted alphabet, and
+    # high per-character entropy. Excludes readable text (spaces / low entropy)
+    # and short values to avoid over-redacting normal config.
+    return (
+        len(v) >= 24
+        and not any(c.isspace() for c in v)
+        and re.fullmatch(r"[A-Za-z0-9+/=_\-.]+", v) is not None
+        and sum(c.isalpha() for c in v) > 0
+        and sum(c.isdigit() for c in v) > 0
+        and _shannon_entropy(v) >= 3.5
+    )
+
+
+# Redaction fires on either a sensitive key name OR a value that looks like a
+# credential. The value check catches leaks the key-name check misses, e.g.
+# DATABASE_URL=postgres://user:pass@host or CREDENTIAL=ghp_xxxx.
 def _is_sensitive(key: str) -> bool:
     lower = key.lower()
     return any(kw in lower for kw in _SENSITIVE_KEYWORDS)
 
 
 def _redact(key: str, value: str) -> str:
-    return "***" if _is_sensitive(key) else value
+    if _is_sensitive(key) or _looks_like_secret_value(value):
+        return "***"
+    return value
 
 
 def _parse_env(content: str) -> list[tuple[str, str]]:
@@ -61,6 +131,10 @@ class ConfigLoader:
     """Load .env, .ini, .cfg, or .toml config files into Documents.
 
     Sensitive keys (password, secret, token, api_key, key, auth) are redacted.
+    Values that *look* like credentials are also redacted regardless of key
+    name: connection strings/DSNs with inline userinfo (``scheme://user:pass@``),
+    known token prefixes (``sk-``, ``ghp_``, ``AKIA``...), and long high-entropy
+    opaque strings.
     """
 
     def __init__(self, path: str) -> None:
