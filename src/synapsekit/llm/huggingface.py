@@ -43,8 +43,14 @@ class HuggingFaceLLM(BaseLLM):
 
     async def _generate(self, prompt: str, system: str | None = None, **kwargs: Any) -> str:
         params = {
-            "max_new_tokens": kwargs.get("max_tokens", self.config.max_tokens or 1024),
-            "temperature": kwargs.get("temperature", self.config.temperature or 0.7),
+            "max_new_tokens": kwargs.get(
+                "max_tokens",
+                self.config.max_tokens if self.config.max_tokens is not None else 1024,
+            ),
+            "temperature": kwargs.get(
+                "temperature",
+                self.config.temperature if self.config.temperature is not None else 0.7,
+            ),
             "top_p": kwargs.get("top_p", 0.95),
             "stream": False,
         }
@@ -62,8 +68,14 @@ class HuggingFaceLLM(BaseLLM):
         self, prompt: str, system: str | None = None, **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         params = {
-            "max_new_tokens": kwargs.get("max_tokens", self.config.max_tokens or 1024),
-            "temperature": kwargs.get("temperature", self.config.temperature or 0.7),
+            "max_new_tokens": kwargs.get(
+                "max_tokens",
+                self.config.max_tokens if self.config.max_tokens is not None else 1024,
+            ),
+            "temperature": kwargs.get(
+                "temperature",
+                self.config.temperature if self.config.temperature is not None else 0.7,
+            ),
             "top_p": kwargs.get("top_p", 0.95),
             "stream": True,
         }
