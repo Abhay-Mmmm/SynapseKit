@@ -341,9 +341,7 @@ class InMemoryVectorStore(VectorStore):
             return 0
 
         self._consolidate()
-        keep_indices = [
-            i for i, meta in enumerate(self._metadata) if meta.get(key) not in values
-        ]
+        keep_indices = [i for i, meta in enumerate(self._metadata) if meta.get(key) not in values]
         removed = len(self._texts) - len(keep_indices)
         if removed == 0:
             return 0

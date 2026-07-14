@@ -286,9 +286,7 @@ class NetworkXPropertyGraphBackend:
                 self._graph.remove_node(node_id)
         else:
             self._graph.nodes.pop(node_id, None)
-            for key in [
-                edge_key for edge_key in self._graph.edges if node_id in edge_key[:2]
-            ]:
+            for key in [edge_key for edge_key in self._graph.edges if node_id in edge_key[:2]]:
                 self._graph.edges.pop(key, None)
             self._graph.outgoing.pop(node_id, None)
             self._graph.incoming.pop(node_id, None)
