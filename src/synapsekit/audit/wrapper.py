@@ -121,6 +121,20 @@ def _safe_value(value: Any, *, _depth: int = 0) -> Any:
     return str(value)
 
 
+def _aggregate_stream(chunks: list[Any]) -> Any:
+    """Deterministically summarize a completed async-gen stream.
+
+    All-``str`` streams (the common token-streaming case) are joined into
+    the full text; anything else falls back to the list of safe values.
+    The result is a stable function of the chunks alone — no object
+    identity or memory address ever leaks in, so the audit hash stays
+    reproducible run to run.
+    """
+    if chunks and all(isinstance(c, str) for c in chunks):
+        return "".join(chunks)
+    return _safe_value(chunks)
+
+
 class VerifiableAgent:
     """Wraps ``agent`` so every method call is captured in a hash-chained trace.
 
@@ -253,6 +267,84 @@ class VerifiableAgent:
         self, name: str, fn: Callable[..., Any], call_kind: EventKind, result_kind: EventKind | None
     ) -> Callable[..., Any]:
         paired = result_kind is not None
+
+        if inspect.isasyncgenfunction(fn):
+
+            @functools.wraps(fn)
+            async def asyncgen_wrapped(*args: Any, **kwargs: Any) -> Any:
+                # Streaming methods (stream/stream_steps/...) must not be
+                # recorded via the sync wrapper: that would record
+                # status:ok with output "<async_generator object at 0x...>"
+                # before a single token was produced — the memory address
+                # makes the hash-chain non-deterministic, and any error
+                # raised mid-stream would never be recorded at all.
+                parent_id = _current_event_id.get()
+                call_event_id = uuid.uuid4().hex
+                base_payload = self._base_payload(name, args, kwargs)
+                if paired:
+                    self._record_call(call_kind, dict(base_payload), parent_id, call_event_id)
+                chunks: list[Any] = []
+                inner = fn(*args, **kwargs)
+                try:
+                    while True:
+                        # Scope the contextvar to each step so nested
+                        # audited calls made *while producing* a chunk get
+                        # this stream as their parent. A ContextVar token
+                        # can't be reset across the suspend/resume that a
+                        # bare `async for … yield` implies (the resume may
+                        # land in a different Context), so we set/reset
+                        # around each __anext__ only.
+                        token = _current_event_id.set(call_event_id)
+                        try:
+                            item = await inner.__anext__()
+                        except StopAsyncIteration:
+                            break
+                        finally:
+                            _current_event_id.reset(token)
+                        chunks.append(item)
+                        yield item
+                except Exception as exc:
+                    payload = {
+                        **base_payload,
+                        # A deterministic summary of what streamed before
+                        # the failure — never the generator's repr/address.
+                        "output": _safe_value(chunks),
+                        "chunk_count": len(chunks),
+                        "error": str(exc),
+                        "error_type": type(exc).__name__,
+                        "status": "error",
+                    }
+                    self._record_outcome(
+                        paired=paired,
+                        result_kind=result_kind,
+                        call_kind=call_kind,
+                        payload=payload,
+                        parent_id=parent_id,
+                        call_event_id=call_event_id,
+                        is_error=True,
+                    )
+                    raise
+                else:
+                    payload = {
+                        **base_payload,
+                        # Deterministic aggregate of the completed stream —
+                        # the concatenation of yielded chunks when they are
+                        # all strings, otherwise the list of safe values.
+                        "output": _aggregate_stream(chunks),
+                        "chunk_count": len(chunks),
+                        "status": "ok",
+                    }
+                    self._record_outcome(
+                        paired=paired,
+                        result_kind=result_kind,
+                        call_kind=call_kind,
+                        payload=payload,
+                        parent_id=parent_id,
+                        call_event_id=call_event_id,
+                        is_error=False,
+                    )
+
+            return asyncgen_wrapped
 
         if inspect.iscoroutinefunction(fn):
 
@@ -393,6 +485,12 @@ def audited(
                 parent_id = _current_event_id.get()
                 event_id = uuid.uuid4().hex
                 payload = build_payload(args, kwargs)
+                # Default to ERROR so that a BaseException that skips both
+                # the success and the ``except Exception`` branch — most
+                # importantly asyncio.CancelledError, which is a
+                # BaseException, not an Exception — still records a record
+                # in ``finally`` instead of raising UnboundLocalError.
+                emitted_kind: EventKind | str = EventKind.ERROR
                 token = _current_event_id.set(event_id)
                 try:
                     result = await fn(*args, **kwargs)
@@ -404,6 +502,16 @@ def audited(
                     payload["error"] = str(exc)
                     payload["error_type"] = type(exc).__name__
                     payload["status"] = "error"
+                    emitted_kind = EventKind.ERROR
+                    raise
+                except BaseException as exc:
+                    # Cancellation (and other BaseExceptions like
+                    # KeyboardInterrupt) must still leave an audit trail,
+                    # then propagate unchanged — swallowing a
+                    # CancelledError would break cooperative cancellation.
+                    payload["error"] = str(exc) or type(exc).__name__
+                    payload["error_type"] = type(exc).__name__
+                    payload["status"] = "cancelled"
                     emitted_kind = EventKind.ERROR
                     raise
                 finally:
@@ -423,6 +531,10 @@ def audited(
             parent_id = _current_event_id.get()
             event_id = uuid.uuid4().hex
             payload = build_payload(args, kwargs)
+            # See async_wrapped: default to ERROR so a BaseException
+            # (e.g. KeyboardInterrupt) that skips both branches still
+            # records instead of raising UnboundLocalError.
+            emitted_kind: EventKind | str = EventKind.ERROR
             token = _current_event_id.set(event_id)
             try:
                 result = fn(*args, **kwargs)
@@ -434,6 +546,12 @@ def audited(
                 payload["error"] = str(exc)
                 payload["error_type"] = type(exc).__name__
                 payload["status"] = "error"
+                emitted_kind = EventKind.ERROR
+                raise
+            except BaseException as exc:
+                payload["error"] = str(exc) or type(exc).__name__
+                payload["error_type"] = type(exc).__name__
+                payload["status"] = "cancelled"
                 emitted_kind = EventKind.ERROR
                 raise
             finally:
