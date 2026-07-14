@@ -25,6 +25,67 @@ SynapseKit uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+#### Production hardening audit
+
+A six-dimension audit (architecture, performance, security, reliability, packaging, correctness) found and fixed 42 issues (#773–#814), each shipped with a regression test.
+
+**Behavior changes (note before upgrading):**
+
+- **`from synapsekit import AgentMemory` now returns the persistent memory class** (#790) — previously it returned the deprecated `AgentScratchpad` alias and warned on every use. The scratchpad is still available as `AgentScratchpad`, and `PersistentAgentMemory` remains a working alias for the persistent class.
+- **Audit `verify()` without `trusted_keys` now returns `UNVERIFIABLE`, not `MATCH`** (#811) — a self-signed bundle proves only internal consistency, not signer authenticity, so an unpinned verify no longer reports `MATCH`. Pass `trusted_keys={key_id: public_key}` for a real `MATCH` verdict.
+
+**Security:**
+
+- **CalculatorTool `eval()` sandbox escape / RCE** (#801) — a default agent tool ran `eval()` with no AST validation, allowing `().__class__.__bases__[0].__subclasses__()` escapes to `os.system` and a `9**9**9` DoS; replaced with an AST allowlist and an exponent bound
+- **ShellTool allowlist bypass on Windows** (#802) — the allowlist checked `argv[0]` but ran the raw string via `shell=True`, so `echo hi & curl evil` bypassed it; now always runs parsed argv without a shell and rejects metacharacters when an allowlist is set
+- **SitemapLoader and WebLoader SSRF** (#806, #807) — added a shared fail-closed URL guard that blocks private/loopback/link-local/reserved and cloud-metadata (169.254.169.254) addresses, re-validates on redirects, and rejects on DNS-resolution failure (WebLoader previously failed open); SitemapLoader now validates every discovered and nested-index URL
+- **BrowserTool SSRF** (#803) — `allowed_domains=None` allowed all hosts with no private-IP guard; added an `ipaddress`-based private/loopback/link-local guard applied regardless of the allowlist and re-checked on redirects, with an `allow_private_ips` opt-out
+- **ConfigLoader leaked embedded credentials** (#808) — redaction keyed only on config key names, emitting `DATABASE_URL=postgres://user:pass@host` verbatim; now also redacts credentials embedded in values (URL userinfo, known key prefixes, high-entropy tokens)
+- **Cypher injection via `max_hops` in the Neo4j KG backend** (#783) — an unchecked value was interpolated into a variable-length relationship pattern; now cast to a bounded int
+- **Cassandra CQL built by f-string** (#784) — `top_k` is now validated as a positive int and bound as a parameter
+- **Audit verifier trust anchor** (#811, see behavior changes above)
+
+**Correctness:**
+
+- **`BaseTool.parameters` was a `dataclasses.Field` object, not a dict** (#799) — `field(default_factory=dict)` used outside a dataclass made `tool.schema()` unserializable and crashed `FunctionCallingAgent` on the first API call for any tool without explicit parameters; replaced with a property returning a fresh dict
+- **`@audited` turned task cancellation into `UnboundLocalError`** (#809) — `emitted_kind` was unset on the `CancelledError` path; now initialized before the try and a record is written on cancellation
+- **`@audited` mishandled async-generator (streaming) methods** (#810) — streaming methods fell into the sync wrapper and recorded a non-deterministic `<async_generator at 0x…>` repr before any token; added an async-gen branch that records a deterministic aggregate and mid-stream errors
+- **Token totals recorded as cumulative values** (#791) — `RAGPipeline.stream` and `SelfHealingRAG` passed the running `tokens_used` total to the tracer, inflating cost reports quadratically; now record the per-call delta
+- **LivingMemory auto-apply lost earlier patches** (#792) — proposals computed diffs from a stale one-time snapshot, so a second patch to a file overwrote the first; the snapshot is now updated after each applied patch
+- **ReAct `Action Input` regex captured the rest of the completion** (#800) — `re.DOTALL` swallowed subsequent blocks into the tool input; now stops at the next section marker
+- **`VectorStore.search(top_k=0)` returned all documents** (#780) — `np.argpartition(scores, -0)[-0:]` sliced the whole array; now early-returns `[]`
+- **Text splitters silently dropped data on bad overlap** (#781) — `chunk_overlap >= chunk_size` raised or returned `[]` (silent no-op ingest); now validated in `__init__`
+- **`top_k=0` conflated with unset** across RAG, retrieval, and mesh entry points (#782, #793, #814) — `top_k or default` replaced with `is not None` checks
+- **HuggingFaceLLM overrode `temperature=0.0` / `max_tokens=0`** (#773) — falsy-zero defaults replaced with `is not None`
+- **LLM response cache key omitted `system_prompt` and provider** (#774) — instances sharing a cache path but different system prompts returned each other's answers; both are now folded into the key
+- **AgentMemory overflow consolidation degenerated to one-episode summaries** (#794) — now consolidates `max(overflow, consolidation_window)` episodes
+- **RAG pipeline shared one metadata dict across all chunks** (#795) — mutating one result's metadata mutated every chunk; each chunk now gets an independent dict
+- **HybridSearch dropped prior docs on incremental add** (#786) — `add_documents` replaced the index instead of extending it
+- **AgentMemory consolidation failures were swallowed silently** (#798) — now logged at warning level
+
+**Reliability:**
+
+- **LLM retries were off by default with no timeout knob** (#775) — `max_retries` now defaults to 2 and `LLMConfig` gained a `timeout` field
+- **Retry classification used substring matching** (#776) — now classifies on exception type / HTTP status (retries only timeouts, connection errors, 429/5xx), adds jitter, and honors `Retry-After`
+- **Sync Redis and SQLite cache calls blocked the event loop** (#777, #778) — async paths offload to a thread; SQLite cache uses `check_same_thread=False` + WAL + busy timeout + a lock; Redis gets socket timeouts
+- **`LLMConfig` was unvalidated** (#779) — added `__post_init__` range validation for temperature, top_p, max_tokens, and timeout
+- **AgentFederation had no failover** (#804) — `run()` now wraps calls in `asyncio.wait_for` and fails over to the next healthy candidate
+- **HybridSearch failed entirely when the vector store was down** (#787) — now falls back to BM25-only results
+
+**Performance:**
+
+- **`WorldModelRAG.ingest` embedded one document at a time** (#788) — now batches all documents into a single embedding call
+- **`AgentMemory.recall` scored cosine in pure Python over every row** (#796) — vectorized with a single numpy matrix product
+- **AgentMemory SQLite backend opened a connection per operation** (#797) — now uses one persistent WAL connection and batches per-hit `touch` updates
+- **KnowledgeMesh blocked the event loop and full-scanned SQLite** (#812, #813, #814) — reindex/query I/O moved to threads, added an index on `mesh_chunks(path, active)`, and replaced whole-set materialization with a candidate-scoped query
+- **RAG-fusion ran query variants sequentially** (#785) — now fans out with `asyncio.gather`
+- **HybridSearch full-sorted the corpus per query** (#786) — now uses `heapq.nlargest`
+- **Blocking file/SQLite I/O in agent tools** (#805) — `sql_query`, `file_read`, and `file_write` moved to threads; file tools gained a max-bytes cap
+
+**Packaging:**
+
+- **`synapsekit[cassandra]` did not install `astrapy`** (#789) — the extra pointed users at an install that still failed; `astrapy` added to the extra and the error message corrected
+
 - **`PatchStore.update()` clobbered signatures** — every state transition re-signed the patch with an empty secret right after the caller had already signed it correctly, breaking `verify()` for applied/reverted patches; removed the redundant sign call
 - **`MemoryPIIFilter` missed API keys** — the clean-content check only looked at `PIIDetector`'s small pattern set, so content containing only an API key or secret slipped through unredacted; the check now also covers the filter's own redaction patterns
 - **`MemoryPIIFilter` violation type parsing** — `redact=False` mode mis-parsed violation strings like `"PII detected (email): 2 instance(s)"` into `"email)"` instead of `"email"`; replaced with a proper regex parse
