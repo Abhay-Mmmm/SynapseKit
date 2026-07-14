@@ -25,7 +25,7 @@ Async-native RAG, Agents, and Graph workflows — no magic, no SaaS, no bloat.
 
 > *"LangChain for people who hate LangChain."*
 
-SynapseKit is the minimal, async-first Python framework for LLM applications. 33 providers · 48+ tools · 64 loaders · 22 vector stores. Every abstraction is plain Python you can read, debug, and extend. No hidden chains. No global state. No lock-in.
+SynapseKit is the minimal, async-first Python framework for LLM applications. 33 providers · 50+ tools · 66 loaders · 22 vector stores. Every abstraction is plain Python you can read, debug, and extend. No hidden chains. No global state. No lock-in.
 
 ---
 
@@ -105,6 +105,7 @@ print(my_agent.run("What's the weather in Tokyo?"))
 | Structured output | **✅ Provider-agnostic** | ⚠️ Provider-specific | ⚠️ Provider-specific |
 | Agent memory backends | **✅ 4 built-in** | ⚠️ Community plugins | ⚠️ Community plugins |
 | Observability | **✅ Prometheus + Grafana** | ❌ No | ❌ No |
+| Verifiable audit trails | **✅ Signed, hash-chained** | ❌ No | ❌ No |
 | Type safety | **✅ Strict dataclasses** | ⚠️ Partial | ⚠️ Partial |
 | LLM providers | **33** | 38+ | 20+ |
 | Stack traces | **Your code** | Framework internals | Framework internals |
@@ -113,6 +114,28 @@ print(my_agent.run("What's the weather in Tokyo?"))
 </div>
 
 LangChain has more raw integrations and more tutorials. That's not what SynapseKit is optimizing for. SynapseKit is optimizing for the engineer who needs to ship, debug, and maintain an LLM feature in production — where readable code, predictable async behavior, and no surprise SaaS bills actually matter.
+
+---
+
+## New in 2.0.0
+
+Version 2.0 is about **trust and autonomy in production** — provable behavior, self-managing memory, richer retrieval, and local-first operation. It also ships a repo-wide hardening pass: 42 audited security, reliability, and performance fixes, each with a regression test.
+
+- **[Verifiable Agents](https://synapsekit.github.io/synapsekit-docs/docs/audit/)** — cryptographically signed, hash-chained audit trails (RFC 6962 Merkle batch signing, Ed25519 + pluggable KMS/BYOK) with a standalone verifier that returns `MATCH` / `DRIFT` / `UNVERIFIABLE`. Prove exactly what your agent did.
+- **[Living Memory](https://synapsekit.github.io/synapsekit-docs/docs/memory/living-memory)** — agents propose signed, diffable patches to their memory files instead of silently overwriting them; review, apply, or revert.
+- **[Property Graph RAG](https://synapsekit.github.io/synapsekit-docs/docs/rag/property-graph)** — vector search fused with graph traversal (NetworkX + Neo4j), plus a graph-backed `AgentMemory`.
+- **[WorldModelRAG](https://synapsekit.github.io/synapsekit-docs/docs/rag/world-model)** — temporal knowledge-graph RAG with causal links and validity windows.
+- **[Personal Knowledge Mesh](https://synapsekit.github.io/synapsekit-docs/docs/mesh/)** — local-first, incremental indexing across every project on your machine, with a `synapsekit mesh` CLI and MCP tools.
+- **[AgentSwarm](https://synapsekit.github.io/synapsekit-docs/docs/agents/swarm)** — market-based agent routing (sealed-bid, Vickrey, English, coalition auctions) with reputation learning.
+- **[SelfImprovingAgent](https://synapsekit.github.io/synapsekit-docs/docs/agents/self-improving)** — eval-gated agent config evolution with signed patches and canary rollout.
+- **[NeuroSymbolicAgent](https://synapsekit.github.io/synapsekit-docs/docs/agents/neuro-symbolic)** — LLM-extracted constraints verified by Z3 / SymPy / MiniZinc / Prolog backends.
+- **[EdgeRuntime](https://synapsekit.github.io/synapsekit-docs/docs/edge/)** — local-first inference with policy-gated cloud fallback and PII redaction before any data leaves the device.
+
+Upgrading from 1.x? See the **[Migrating to 2.0 guide](https://synapsekit.github.io/synapsekit-docs/docs/getting-started/migration-2.0)** — there are a few breaking changes (the top-level `AgentMemory` export, audit `verify()` trust anchoring, bundle schema 1.2, and default LLM retries).
+
+```bash
+pip install --upgrade synapsekit
+```
 
 ---
 

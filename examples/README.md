@@ -108,6 +108,42 @@ Route work across a five-agent fleet with sealed-bid market selection, determini
 python examples/agent_swarm_market.py
 ```
 
+### 12. `verifiable_agent.py` — Verifiable Agents *(v2.0)*
+Wrap an agent with `VerifiableAgent` to produce a signed, hash-chained audit trail, export a portable bundle, and verify it.
+
+```bash
+python examples/verifiable_agent.py
+```
+
+### 13. `audit_verify.py` — Audit Bundle Verification *(v2.0)*
+Verify a signed audit bundle with the standalone verifier, including `trusted_keys` pinning and the `MATCH` / `DRIFT` / `UNVERIFIABLE` verdicts.
+
+```bash
+python examples/audit_verify.py
+```
+
+### 14. `self_improving_agent.py` — Self-Improving Agent *(v2.0)*
+Eval-gated agent config evolution: observe feedback, propose signed config patches, canary them, and roll back on regression.
+
+```bash
+python examples/self_improving_agent.py
+```
+
+### 15. `world_model_rag.py` — WorldModelRAG *(v2.0)*
+Build a temporal knowledge-graph world model with causal links and query it via the hybrid graph + vector retriever.
+
+```bash
+python examples/world_model_rag.py
+```
+
+### 16. `edge_runtime.py` — Edge Runtime *(v2.0)*
+Local-first inference with a policy-gated cloud fallback and PII redaction before anything leaves the device.
+
+```bash
+pip install synapsekit[onnx]
+python examples/edge_runtime.py
+```
+
 ## General Pattern
 
 All examples follow this pattern:
