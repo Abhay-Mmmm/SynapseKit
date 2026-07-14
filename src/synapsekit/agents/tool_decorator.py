@@ -48,11 +48,12 @@ def tool(
 
         _DynamicTool.name = tool_name
         _DynamicTool.description = tool_desc
-        _DynamicTool.parameters = params
         _DynamicTool.__name__ = tool_name
         _DynamicTool.__qualname__ = tool_name
 
-        return _DynamicTool()
+        instance = _DynamicTool()
+        instance.parameters = params
+        return instance
 
     return decorator
 

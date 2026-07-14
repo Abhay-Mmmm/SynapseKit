@@ -39,7 +39,7 @@ class BaseTool(ABC):
     #     below stores it as a per-instance override.
     @property
     def parameters(self) -> dict[str, Any]:
-        override = self.__dict__.get("_parameters_override")
+        override: dict[str, Any] | None = self.__dict__.get("_parameters_override")
         if override is not None:
             return override
         return {"type": "object", "properties": {}}
