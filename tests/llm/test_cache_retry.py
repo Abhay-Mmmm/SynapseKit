@@ -83,7 +83,7 @@ class TestRetryAsync:
             nonlocal call_count
             call_count += 1
             if call_count < 3:
-                raise RuntimeError("transient error")
+                raise ConnectionError("transient error")
             return "ok"
 
         result = await retry_async(fn, max_retries=3, delay=0.01)
@@ -92,9 +92,9 @@ class TestRetryAsync:
 
     async def test_raises_after_exhausting_retries(self):
         async def fn():
-            raise RuntimeError("always fails")
+            raise ConnectionError("always fails")
 
-        with pytest.raises(RuntimeError, match="always fails"):
+        with pytest.raises(ConnectionError, match="always fails"):
             await retry_async(fn, max_retries=2, delay=0.01)
 
     async def test_no_retry_on_auth_error(self):
@@ -192,7 +192,7 @@ class _FailingLLM(BaseLLM):
     async def stream(self, prompt: str, **kw):
         self._call_count += 1
         if self._call_count <= self._fail_count:
-            raise RuntimeError("transient error")
+            raise ConnectionError("transient error")
         yield "success"
 
 
@@ -204,12 +204,21 @@ class TestBaseLLMRetry:
         assert result == "success"
         assert llm._call_count == 3
 
-    async def test_no_retry_by_default(self):
-        config = LLMConfig(model="m", api_key="k", provider="test")
+    async def test_no_retry_when_disabled(self):
+        config = LLMConfig(model="m", api_key="k", provider="test", max_retries=0)
         llm = _FailingLLM(config, fail_count=1)
-        with pytest.raises(RuntimeError, match="transient"):
+        with pytest.raises(ConnectionError, match="transient"):
             await llm.generate("test")
         assert llm._call_count == 1
+
+    async def test_retries_enabled_by_default(self):
+        # max_retries now defaults to 2 (#775), so a transient failure recovers.
+        config = LLMConfig(model="m", api_key="k", provider="test", retry_delay=0.01)
+        assert config.max_retries == 2
+        llm = _FailingLLM(config, fail_count=2)
+        result = await llm.generate("test")
+        assert result == "success"
+        assert llm._call_count == 3
 
 
 # ------------------------------------------------------------------ #
@@ -221,8 +230,9 @@ def test_llmconfig_defaults():
     config = LLMConfig(model="m", api_key="k", provider="test")
     assert config.cache is False
     assert config.cache_maxsize == 128
-    assert config.max_retries == 0
+    assert config.max_retries == 2
     assert config.retry_delay == 1.0
+    assert config.timeout is None
 
 
 # ------------------------------------------------------------------ #
