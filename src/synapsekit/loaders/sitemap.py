@@ -5,11 +5,13 @@ from collections import deque
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
+from ._url_guard import redirect_target, validate_public_url
 from .base import Document
 
 _MAX_TEXT_LENGTH = 100_000
 _MAX_CONCURRENCY = 10
 _DEFAULT_TIMEOUT = 30
+_MAX_REDIRECTS = 10
 
 
 def _extract_text(html: str) -> str:
@@ -85,9 +87,11 @@ class SitemapLoader:
     ) -> None:
         if not url:
             raise ValueError("url must be provided")
-        parsed = urlparse(url)
-        if parsed.scheme not in ("http", "https"):
-            raise ValueError(f"URL scheme {parsed.scheme!r} is not allowed; use http or https.")
+        # SSRF guard: reject non-http(s) schemes and hosts resolving to
+        # private/loopback/link-local addresses (e.g. cloud metadata). This is
+        # re-applied to every discovered <loc> and nested sitemap URL at fetch
+        # time, since those are attacker-controllable via the sitemap body.
+        validate_public_url(url)
 
         self._url = url
         self._limit = limit
@@ -116,7 +120,9 @@ class SitemapLoader:
             return []
 
         docs: list[Document] = []
-        async with httpx.AsyncClient(follow_redirects=True, timeout=_DEFAULT_TIMEOUT) as client:
+        # follow_redirects=False: we follow redirects manually so every hop is
+        # re-validated by the SSRF guard (a page may 302 to an internal host).
+        async with httpx.AsyncClient(follow_redirects=False, timeout=_DEFAULT_TIMEOUT) as client:
             for i in range(0, len(url_entries), _MAX_CONCURRENCY):
                 batch = url_entries[i : i + _MAX_CONCURRENCY]
                 tasks = [self._fetch_page(client, entry) for entry in batch]
@@ -140,18 +146,21 @@ class SitemapLoader:
         seen: set[str] = set()
         all_entries: list[dict[str, str]] = []
 
-        async with httpx.AsyncClient(follow_redirects=True, timeout=_DEFAULT_TIMEOUT) as client:
+        async with httpx.AsyncClient(follow_redirects=False, timeout=_DEFAULT_TIMEOUT) as client:
             while to_visit:
                 sitemap_url = to_visit.popleft()
                 if sitemap_url in visited:
                     continue
                 visited.add(sitemap_url)
 
+                # Nested sitemap-index URLs come straight from the (untrusted)
+                # sitemap body, so validate before every fetch. A private/
+                # loopback target raises and the URL is skipped, never fetched.
                 try:
-                    resp = await client.get(sitemap_url)
+                    resp = await self._get_validated(client, sitemap_url)
                     resp.raise_for_status()
                 except Exception:
-                    # Skip invalid or unreachable sitemap URLs
+                    # Skip invalid, unreachable, or blocked sitemap URLs
                     continue
 
                 url_entries, index_urls = _parse_sitemap(resp.text, base_url)
@@ -165,13 +174,31 @@ class SitemapLoader:
 
         return all_entries
 
+    async def _get_validated(self, client: Any, url: str) -> Any:
+        """GET *url*, validating it (and every redirect hop) against the guard.
+
+        Redirects are followed manually because a discovered page can 302 to an
+        internal address; each hop is re-checked so SSRF is blocked mid-chain.
+        """
+        for _ in range(_MAX_REDIRECTS + 1):
+            validate_public_url(url)
+            resp = await client.get(url)
+            next_url = redirect_target(resp)
+            if next_url is not None:
+                url = next_url
+                continue
+            return resp
+        raise ValueError(f"Too many redirects while fetching {url!r}")
+
     async def _fetch_page(self, client: Any, entry: dict[str, str]) -> Document | None:
         """Fetch a single page and return a Document, or None on failure."""
         url = entry.get("loc")
         if not url:
             return None
         try:
-            resp = await client.get(url)
+            # <loc> values are attacker-controllable; _get_validated blocks
+            # requests to private/loopback/link-local addresses.
+            resp = await self._get_validated(client, url)
             resp.raise_for_status()
             text = _extract_text(resp.text)
             if not text:

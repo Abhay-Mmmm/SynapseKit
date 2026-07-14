@@ -416,8 +416,20 @@ class TestFederatedRetrieverRemoteHTTP:
         assert captured["json"]["top_k"] == 3
 
     @pytest.mark.asyncio
-    async def test_remote_source_sends_auth_header(self):
+    async def test_remote_source_sends_auth_header(self, monkeypatch):
+        import socket
+
         from synapsekit.retrieval.federated import FederatedRetriever
+
+        # The SSRF guard (fail-closed) now resolves the host before the request;
+        # stub DNS so the placeholder host validates as a public address.
+        monkeypatch.setattr(
+            socket,
+            "getaddrinfo",
+            lambda *a, **k: [
+                (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("93.184.216.34", 0))
+            ],
+        )
 
         captured_headers = {}
 
