@@ -1089,9 +1089,7 @@ class WorldModelRAG:
             doc_id = self._doc_id(metadata)
             prepared.append((text, doc_id))
             batch_texts.append(text)
-            batch_metadata.append(
-                {**metadata, "source": doc_id, "world_model_doc_id": doc_id}
-            )
+            batch_metadata.append({**metadata, "source": doc_id, "world_model_doc_id": doc_id})
 
         if batch_texts:
             await self.vector_retriever.add(batch_texts, batch_metadata)

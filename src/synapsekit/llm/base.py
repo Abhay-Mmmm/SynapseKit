@@ -35,9 +35,7 @@ class LLMConfig:
         local providers (Ollama, llama.cpp, LM Studio, MLX, ...) need none.
         """
         if not (0.0 <= self.temperature <= 2.0):
-            raise ValueError(
-                f"temperature must be between 0.0 and 2.0, got {self.temperature!r}"
-            )
+            raise ValueError(f"temperature must be between 0.0 and 2.0, got {self.temperature!r}")
         if self.top_p is not None and not (0.0 <= self.top_p <= 1.0):
             raise ValueError(f"top_p must be between 0.0 and 1.0, got {self.top_p!r}")
         if self.max_tokens is not None and self.max_tokens <= 0:
@@ -95,7 +93,9 @@ class BaseLLM(ABC):
         """
         from ._cache import AsyncLRUCache
 
-        model_scope = f"{self.config.provider}\x1f{self.config.system_prompt}\x1f{self.config.model}"
+        model_scope = (
+            f"{self.config.provider}\x1f{self.config.system_prompt}\x1f{self.config.model}"
+        )
         return AsyncLRUCache.make_key(
             model_scope,
             prompt_or_messages,

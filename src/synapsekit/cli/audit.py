@@ -123,9 +123,7 @@ def _run_verify(args: Any) -> None:
             # Self-consistent, but no key was pinned: the verifier caps
             # this at UNVERIFIABLE rather than MATCH, because signatures
             # were only checked against keys embedded in the bundle itself.
-            print(
-                "Trust:      NONE — signatures verified only against keys embedded in the bundle"
-            )
+            print("Trust:      NONE — signatures verified only against keys embedded in the bundle")
             print(
                 "\nUNVERIFIABLE — the bundle is internally self-consistent (it wasn't edited "
                 "after export), but its signer's identity is UNAUTHENTICATED. Pass --trusted-key "

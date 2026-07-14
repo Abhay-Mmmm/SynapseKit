@@ -262,12 +262,8 @@ class RAGPipeline:
 
                 if tracer:
                     used = self.config.llm.tokens_used
-                    input_delta = max(
-                        0, int(used["input"]) - int(tokens_before.get("input", 0))
-                    )
-                    output_delta = max(
-                        0, int(used["output"]) - int(tokens_before.get("output", 0))
-                    )
+                    input_delta = max(0, int(used["input"]) - int(tokens_before.get("input", 0)))
+                    output_delta = max(0, int(used["output"]) - int(tokens_before.get("output", 0)))
                     call_id = tracer.record(
                         input_tokens=input_delta,
                         output_tokens=output_delta,

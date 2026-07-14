@@ -159,9 +159,7 @@ class CalculatorTool(BaseTool):
         except ValueError as e:
             return ToolResult(output="", error=f"Unsafe or unsupported expression: {e}")
         try:
-            result = eval(
-                compile(tree, "<calculator>", "eval"), _SAFE_GLOBALS, {}
-            )
+            result = eval(compile(tree, "<calculator>", "eval"), _SAFE_GLOBALS, {})
             return ToolResult(output=str(result))
         except ZeroDivisionError:
             return ToolResult(output="", error="Division by zero.")

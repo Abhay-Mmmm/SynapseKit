@@ -63,9 +63,7 @@ class SQLQueryTool(BaseTool):
                 "sqlalchemy required for non-SQLite databases: pip install sqlalchemy"
             ) from None
 
-    def _execute_blocking(
-        self, sql: str, params: dict[str, Any]
-    ) -> tuple[list[str], list[Any]]:
+    def _execute_blocking(self, sql: str, params: dict[str, Any]) -> tuple[list[str], list[Any]]:
         """Run the query synchronously; intended to be dispatched via to_thread."""
         if self._is_sqlite:
             import sqlite3

@@ -34,7 +34,9 @@ class SQLiteLLMCache:
 
     make_key = staticmethod(AsyncLRUCache.make_key)
 
-    def __init__(self, db_path: str = "synapsekit_llm_cache.db", busy_timeout_ms: int = 5000) -> None:
+    def __init__(
+        self, db_path: str = "synapsekit_llm_cache.db", busy_timeout_ms: int = 5000
+    ) -> None:
         self._db_path = db_path
         # A single shared connection is reused from async handlers that may run
         # on different threads (executor pool), so allow cross-thread use and
@@ -54,9 +56,7 @@ class SQLiteLLMCache:
 
     def get(self, key: str) -> Any | None:
         with self._lock:
-            row = self._conn.execute(
-                "SELECT value FROM llm_cache WHERE key = ?", (key,)
-            ).fetchone()
+            row = self._conn.execute("SELECT value FROM llm_cache WHERE key = ?", (key,)).fetchone()
         if row is not None:
             self.hits += 1
             return row[0]

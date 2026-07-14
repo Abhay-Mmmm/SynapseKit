@@ -218,9 +218,7 @@ class SelfHealingRAG:
         if tracer:
             used = self._llm.tokens_used
             input_delta = max(0, int(used["input"]) - int(tokens_before.get("input", 0)))
-            output_delta = max(
-                0, int(used["output"]) - int(tokens_before.get("output", 0))
-            )
+            output_delta = max(0, int(used["output"]) - int(tokens_before.get("output", 0)))
             tracer.record(
                 input_tokens=input_delta,
                 output_tokens=output_delta,

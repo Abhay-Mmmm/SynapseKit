@@ -9,6 +9,7 @@ from .base import Document
 def _redirect_target(response: Any) -> str | None:
     return redirect_target(response)
 
+
 _MAX_REDIRECTS = 10
 
 

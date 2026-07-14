@@ -66,6 +66,7 @@ def redirect_target(response: object) -> str | None:
         return str(next_url)
     return location
 
+
 # Networks that must never be reached from a user-supplied URL. Covers loopback,
 # RFC1918 private ranges, link-local (incl. the 169.254.169.254 cloud metadata
 # endpoint), carrier-grade NAT, and their IPv6 equivalents / mapped forms.

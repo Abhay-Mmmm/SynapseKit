@@ -24,9 +24,7 @@ def _install_resolver(monkeypatch, mapping):
     def fake_getaddrinfo(host, port, *args, **kwargs):
         if host not in mapping:
             raise socket.gaierror(socket.EAI_NONAME, "unknown host")
-        return [
-            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", (mapping[host], 0))
-        ]
+        return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", (mapping[host], 0))]
 
     monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
 

@@ -65,9 +65,7 @@ class HybridSearchRetriever:
                 query, top_k=top_k * 2, metadata_filter=metadata_filter
             )
         except Exception as exc:
-            logger.warning(
-                "Vector retrieval failed (%s); falling back to BM25-only results.", exc
-            )
+            logger.warning("Vector retrieval failed (%s); falling back to BM25-only results.", exc)
 
         # BM25 scoring — nlargest avoids a full O(n log n) sort of every score.
         bm25_ranked: list[str] = []

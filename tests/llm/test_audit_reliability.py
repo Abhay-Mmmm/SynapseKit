@@ -157,12 +157,8 @@ class TestCacheKeyIsolation:
         from synapsekit.llm._cache import AsyncLRUCache
 
         shared = AsyncLRUCache(maxsize=128)
-        cfg_a = LLMConfig(
-            model="m", api_key="k", provider="p", system_prompt="A", cache=True
-        )
-        cfg_b = LLMConfig(
-            model="m", api_key="k", provider="p", system_prompt="B", cache=True
-        )
+        cfg_a = LLMConfig(model="m", api_key="k", provider="p", system_prompt="A", cache=True)
+        cfg_b = LLMConfig(model="m", api_key="k", provider="p", system_prompt="B", cache=True)
         a = _ScriptedLLM(cfg_a, response="from-A")
         b = _ScriptedLLM(cfg_b, response="from-B")
         a._cache = shared

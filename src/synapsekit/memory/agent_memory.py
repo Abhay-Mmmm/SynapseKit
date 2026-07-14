@@ -119,9 +119,7 @@ class AgentMemory:
         return dot / (na * nb)
 
     @staticmethod
-    def _batch_cosine(
-        query: list[float], embeddings: list[list[float]]
-    ) -> list[float]:
+    def _batch_cosine(query: list[float], embeddings: list[list[float]]) -> list[float]:
         """Cosine similarity of ``query`` against every embedding.
 
         Builds a single numpy matrix and computes all similarities with one
@@ -248,9 +246,7 @@ class AgentMemory:
 
         # Stable sort preserving prior insertion order among equal scores,
         # matching the pure-Python ``sorted(..., key=...)`` behaviour.
-        order = sorted(
-            range(len(scored)), key=lambda i: scored[i][0], reverse=True
-        )
+        order = sorted(range(len(scored)), key=lambda i: scored[i][0], reverse=True)
         ranked = [scored[i][1] for i in order[:top_k]]
 
         await self._backend.touch_many(agent_id, [rec.id for rec in ranked])
@@ -275,8 +271,7 @@ class AgentMemory:
                     return summary_text
             except (ValueError, RuntimeError, OSError, TimeoutError) as exc:
                 logger.warning(
-                    "LLM consolidation failed (%s); falling back to "
-                    "deterministic summarization",
+                    "LLM consolidation failed (%s); falling back to deterministic summarization",
                     exc,
                 )
 

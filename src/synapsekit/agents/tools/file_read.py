@@ -43,8 +43,7 @@ class FileReadTool(BaseTool):
         size = resolved.stat().st_size
         if size > self._max_bytes:
             raise ValueError(
-                f"File is too large: {size} bytes exceeds the limit of "
-                f"{self._max_bytes} bytes."
+                f"File is too large: {size} bytes exceeds the limit of {self._max_bytes} bytes."
             )
         with open(resolved, encoding=encoding) as f:
             return f.read()

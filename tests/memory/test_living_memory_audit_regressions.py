@@ -68,9 +68,7 @@ async def test_auto_apply_preserves_earlier_patch_to_same_file(tmp_path: Path):
     ]
 
     lm = _living_memory(memory_file, proposals, tmp_path)
-    patches = await lm.propose_from_session(
-        "sess-1", transcript="user chatted about two facts"
-    )
+    patches = await lm.propose_from_session("sess-1", transcript="user chatted about two facts")
 
     assert len(patches) == 2
     assert all(p.status == "applied" for p in patches)

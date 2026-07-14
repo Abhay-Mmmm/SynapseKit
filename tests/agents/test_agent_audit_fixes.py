@@ -110,11 +110,7 @@ class TestActionInputParsing:
         assert action_input == "hello world"
 
     def test_multiline_input_within_block_preserved(self) -> None:
-        completion = (
-            "Action: code\n"
-            "Action Input: line1\nstill_input\n"
-            "Final Answer: done"
-        )
+        completion = "Action: code\nAction Input: line1\nstill_input\nFinal Answer: done"
         _, action_input = _parse_action(completion)
         assert action_input == "line1\nstill_input"
 
@@ -347,12 +343,8 @@ class TestFederationFailover:
         bad2 = _CrashingClient()
         registry = InMemoryAgentRegistry(stale_timeout=1_000_000)
         fed = AgentFederation(registry)
-        fed.register_agent(
-            AgentMetadata(id="b1", model="m", tools=["t"], capacity=1), client=bad1
-        )
-        fed.register_agent(
-            AgentMetadata(id="b2", model="m", tools=["t"], capacity=1), client=bad2
-        )
+        fed.register_agent(AgentMetadata(id="b1", model="m", tools=["t"], capacity=1), client=bad1)
+        fed.register_agent(AgentMetadata(id="b2", model="m", tools=["t"], capacity=1), client=bad2)
         with pytest.raises(RuntimeError, match="candidate agents failed"):
             await fed.run("hi", tools="t")
         assert bad1.calls == 1

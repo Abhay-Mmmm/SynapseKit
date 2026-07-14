@@ -265,9 +265,7 @@ def test_chunks_path_active_index_exists(tmp_path: Path) -> None:
             # Confirm the index actually covers (path, active) in that order.
             columns = [
                 row[2]
-                for row in conn.execute(
-                    "PRAGMA index_info('idx_chunks_path_active')"
-                ).fetchall()
+                for row in conn.execute("PRAGMA index_info('idx_chunks_path_active')").fetchall()
             ]
             assert columns == ["path", "active"]
         finally:

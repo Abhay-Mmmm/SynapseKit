@@ -64,9 +64,7 @@ def manifest_keys_as_trusted(path: Path) -> dict[str, bytes]:
     # Selective-disclosure bundles carry their keys under the embedded
     # original_manifest rather than at the top level.
     keys = manifest.get("keys") or manifest.get("original_manifest", {}).get("keys", {})
-    return {
-        key_id: base64.b64decode(info["public_key_b64"]) for key_id, info in keys.items()
-    }
+    return {key_id: base64.b64decode(info["public_key_b64"]) for key_id, info in keys.items()}
 
 
 def write_zip_entries(path: Path, entries: dict[str, bytes]) -> None:

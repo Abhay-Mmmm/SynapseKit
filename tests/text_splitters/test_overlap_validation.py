@@ -35,9 +35,7 @@ def test_valid_overlap_accepted(cls):
 
 def test_recursive_splitter_no_longer_loses_data_via_hard_split():
     """A no-separator string longer than chunk_size still splits without data loss."""
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=10, chunk_overlap=3, separators=[" "]
-    )
+    splitter = RecursiveCharacterTextSplitter(chunk_size=10, chunk_overlap=3, separators=[" "])
     text = "abcdefghijklmnopqrstuvwxyz"  # no separators present
     chunks = splitter.split(text)
     assert chunks  # not silently empty
