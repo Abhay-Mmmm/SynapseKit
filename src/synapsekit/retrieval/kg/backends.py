@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from typing import Protocol
 
+# Upper bound for Cypher variable-length path traversal. max_hops is interpolated
+# directly into the query text (Cypher grammar requires *1..N bounds to be integer
+# literals, not parameters), so it must be validated to avoid injection.
+_MAX_HOPS = 32
+
 
 class BaseGraphStore(Protocol):
     """Protocol for Knowledge Graph storage backends."""
@@ -130,9 +135,15 @@ class Neo4jStore:
         self, entity: str, max_hops: int = 1, min_confidence: float = 0.0
     ) -> set[str]:
         """Return connected entities within max_hops using graph traversal."""
+        # Cypher's variable-length pattern bound (*1..N) must be an integer literal,
+        # not a query parameter, so max_hops is interpolated into the query text.
+        # Validate/cast to a bounded int to prevent Cypher injection.
+        hops = int(max_hops)
+        if hops < 1 or hops > _MAX_HOPS:
+            raise ValueError(f"max_hops must be between 1 and {_MAX_HOPS}, got {max_hops!r}")
         # Using Cypher variable-length path to find neighbors up to max_hops
         query = (
-            f"MATCH (e:Entity {{name: $entity}})-[r:RELATIONSHIP*1..{max_hops}]-(neighbor:Entity) "
+            f"MATCH (e:Entity {{name: $entity}})-[r:RELATIONSHIP*1..{hops}]-(neighbor:Entity) "
             "WHERE all(rel IN r WHERE rel.confidence >= $min_confidence) "
             "RETURN DISTINCT neighbor.name AS name"
         )

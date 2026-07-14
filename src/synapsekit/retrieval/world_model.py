@@ -1076,14 +1076,27 @@ class WorldModelRAG:
 
     async def ingest(self, docs: list[str] | list[Any]) -> None:
         """Ingest documents into both the vector index and world graph."""
+        # Collect all (text, metadata, doc_id) first, then add to the vector index
+        # in a single batched call (embedding backends embed batches far more
+        # efficiently than one text at a time).
+        prepared: list[tuple[str, str]] = []
+        batch_texts: list[str] = []
+        batch_metadata: list[dict] = []
         for doc in docs:
             text, metadata = self._coerce_document(doc)
             if not text.strip():
                 continue
             doc_id = self._doc_id(metadata)
-            vector_metadata = {**metadata, "source": doc_id, "world_model_doc_id": doc_id}
-            await self.vector_retriever.add([text], [vector_metadata])
+            prepared.append((text, doc_id))
+            batch_texts.append(text)
+            batch_metadata.append(
+                {**metadata, "source": doc_id, "world_model_doc_id": doc_id}
+            )
 
+        if batch_texts:
+            await self.vector_retriever.add(batch_texts, batch_metadata)
+
+        for text, doc_id in prepared:
             extraction = await self.extractor.extract(text, self.extraction)
             for entity in extraction.entities:
                 self.graph_backend.upsert_entity(entity, doc_id)
@@ -1133,7 +1146,7 @@ class WorldModelRAG:
     ) -> WorldModelQueryResult:
         """Run hybrid world-model retrieval and synthesize an answer."""
         active_strategy = strategy or self.strategy
-        k = top_k or self._pipeline.config.retrieval_top_k
+        k = top_k if top_k is not None else self._pipeline.config.retrieval_top_k
         subgraph = self.graph_backend.query_subgraph(
             query,
             max_hops=self.max_hops,
