@@ -384,9 +384,13 @@ class LivingMemory:
 
         self._store.save(patch)
 
-        # Auto-apply if approval not required
+        # Auto-apply if approval not required. Update the shared
+        # ``file_contents`` snapshot so later proposals targeting the same
+        # file build their diffs on top of this applied change instead of
+        # the stale on-disk snapshot read once at the start of the session.
         if not self._require_approval:
             self._apply_patch_to_file(patch)
+            file_contents[target_path] = after
 
         return patch
 

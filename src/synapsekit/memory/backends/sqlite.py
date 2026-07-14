@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sqlite3
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -15,13 +16,18 @@ class SQLiteMemoryBackend(BaseMemoryBackend):
     def __init__(self, path: str = "agent_memory.db") -> None:
         self._path = path
         Path(path).parent.mkdir(parents=True, exist_ok=True)
+        # One long-lived connection shared across threads. All access is
+        # serialized through ``self._lock`` so ``check_same_thread=False``
+        # is safe. WAL mode keeps concurrent readers/writers from blocking.
+        self._lock = threading.Lock()
+        self._conn = sqlite3.connect(self._path, check_same_thread=False)
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA synchronous=NORMAL")
         self._init_db()
 
-    def _connect(self) -> sqlite3.Connection:
-        return sqlite3.connect(self._path, check_same_thread=False)
-
     def _init_db(self) -> None:
-        with self._connect() as conn:
+        with self._lock:
+            conn = self._conn
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS agent_memory_records (
@@ -81,7 +87,8 @@ class SQLiteMemoryBackend(BaseMemoryBackend):
 
     async def store(self, record: MemoryRecord) -> None:
         def _op() -> None:
-            with self._connect() as conn:
+            with self._lock:
+                conn = self._conn
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO agent_memory_records (
@@ -114,7 +121,8 @@ class SQLiteMemoryBackend(BaseMemoryBackend):
         include_expired: bool = False,
     ) -> list[MemoryRecord]:
         def _op() -> list[MemoryRecord]:
-            with self._connect() as conn:
+            with self._lock:
+                conn = self._conn
                 if memory_type is None:
                     rows = conn.execute(
                         """
@@ -156,7 +164,8 @@ class SQLiteMemoryBackend(BaseMemoryBackend):
         ts = self._to_ts(accessed_at or datetime.now(timezone.utc))
 
         def _op() -> None:
-            with self._connect() as conn:
+            with self._lock:
+                conn = self._conn
                 conn.execute(
                     """
                     UPDATE agent_memory_records
@@ -169,9 +178,41 @@ class SQLiteMemoryBackend(BaseMemoryBackend):
 
         await asyncio.to_thread(_op)
 
+    async def touch_many(
+        self,
+        agent_id: str,
+        record_ids: list[str],
+        *,
+        accessed_at: datetime | None = None,
+    ) -> None:
+        if not record_ids:
+            return
+        ts = self._to_ts(accessed_at or datetime.now(timezone.utc))
+        placeholders = ",".join("?" for _ in record_ids)
+
+        def _op() -> None:
+            with self._lock:
+                conn = self._conn
+                conn.execute(
+                    f"""
+                    UPDATE agent_memory_records
+                    SET accessed_at = ?, access_count = access_count + 1
+                    WHERE agent_id = ? AND id IN ({placeholders})
+                    """,
+                    (ts, agent_id, *record_ids),
+                )
+                conn.commit()
+
+        await asyncio.to_thread(_op)
+
+    def close(self) -> None:
+        with self._lock:
+            self._conn.close()
+
     async def delete(self, agent_id: str, record_id: str) -> bool:
         def _op() -> bool:
-            with self._connect() as conn:
+            with self._lock:
+                conn = self._conn
                 cur = conn.execute(
                     "DELETE FROM agent_memory_records WHERE agent_id = ? AND id = ?",
                     (agent_id, record_id),
@@ -183,7 +224,8 @@ class SQLiteMemoryBackend(BaseMemoryBackend):
 
     async def clear(self, agent_id: str, memory_type: MemoryType | None = None) -> int:
         def _op() -> int:
-            with self._connect() as conn:
+            with self._lock:
+                conn = self._conn
                 if memory_type is None:
                     cur = conn.execute(
                         "DELETE FROM agent_memory_records WHERE agent_id = ?",
@@ -201,7 +243,8 @@ class SQLiteMemoryBackend(BaseMemoryBackend):
 
     async def count(self, agent_id: str, memory_type: MemoryType | None = None) -> int:
         def _op() -> int:
-            with self._connect() as conn:
+            with self._lock:
+                conn = self._conn
                 if memory_type is None:
                     row = conn.execute(
                         "SELECT COUNT(*) FROM agent_memory_records WHERE agent_id = ?",
@@ -220,7 +263,8 @@ class SQLiteMemoryBackend(BaseMemoryBackend):
         now_ts = (now or datetime.now(timezone.utc)).timestamp()
 
         def _op() -> int:
-            with self._connect() as conn:
+            with self._lock:
+                conn = self._conn
                 cur = conn.execute(
                     """
                     DELETE FROM agent_memory_records

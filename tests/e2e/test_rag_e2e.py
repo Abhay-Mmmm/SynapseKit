@@ -28,14 +28,18 @@ def _make_rag(tokens=("Paris",)) -> RAG:
     )
     rag._pipeline.config.retriever._store.add = AsyncMock()
 
-    # Mock LLM streaming
+    # Mock LLM streaming. Real providers accumulate token counters *during*
+    # the call, so bump them inside the stream — the pipeline records the
+    # per-call delta (see issue #791), not the running cumulative total.
+    llm = rag._pipeline.config.llm
+
     async def _stream(messages, **kw):
+        llm._input_tokens += 10
+        llm._output_tokens += 5
         for tok in tokens:
             yield tok
 
-    rag._pipeline.config.llm.stream_with_messages = _stream
-    rag._pipeline.config.llm._input_tokens = 10
-    rag._pipeline.config.llm._output_tokens = 5
+    llm.stream_with_messages = _stream
 
     # Mock text splitter
     splitter = MagicMock()

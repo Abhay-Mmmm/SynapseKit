@@ -26,7 +26,6 @@ from .agents import (
     AgentEvolutionAuditLog,
     AgentExecutor,
     AgentFederation,
-    AgentMemory,
     AgentMetadata,
     AgentRegistry,
     AgentRoutingStrategy,
@@ -288,8 +287,8 @@ from .loaders.tsv import TSVLoader
 from .loaders.web import WebLoader
 from .loaders.wikipedia import WikipediaLoader
 from .mcp import MCPClient, MCPServer, MCPToolAdapter
-from .memory import AgentMemory as PersistentAgentMemory
 from .memory import (
+    AgentMemory,
     DiffConflictError,
     FileDiffEngine,
     GraphAgentMemory,
@@ -305,6 +304,7 @@ from .memory import (
     PatchStore,
     PIIFilterResult,
 )
+from .memory import AgentMemory as PersistentAgentMemory  # deprecated alias, kept 1 release
 from .memory.buffer import BufferMemory
 from .memory.conversation import ConversationMemory
 from .memory.entity import EntityMemory

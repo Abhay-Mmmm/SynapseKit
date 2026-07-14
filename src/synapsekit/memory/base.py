@@ -50,6 +50,21 @@ class BaseMemoryBackend(ABC):
         accessed_at: datetime | None = None,
     ) -> None: ...
 
+    async def touch_many(
+        self,
+        agent_id: str,
+        record_ids: list[str],
+        *,
+        accessed_at: datetime | None = None,
+    ) -> None:
+        """Bump access metadata for several records.
+
+        Default implementation loops over :meth:`touch`; backends may
+        override with a single batched write.
+        """
+        for record_id in record_ids:
+            await self.touch(agent_id, record_id, accessed_at=accessed_at)
+
     @abstractmethod
     async def delete(self, agent_id: str, record_id: str) -> bool: ...
 
