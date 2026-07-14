@@ -113,6 +113,47 @@ def test_patch_store(tmp_path: Path) -> None:
     assert retrieved2.status == "applied"
 
 
+def test_patch_store_update_preserves_secret_signature(tmp_path: Path) -> None:
+    """Regression test for PatchStore.update() clobbering secret-signed signatures.
+
+    Bug: update() unconditionally called patch.sign() with no secret, which
+    overwrote any secret-signed signature set by the caller with an
+    empty-secret one before persisting, breaking patch.verify(secret) for
+    applied/reverted patches and letting forged signatures verify.
+    Root cause: patch.sign() call inside PatchStore.update().
+    Fix: removed the redundant sign() call from update() -- callers already
+    sign with the correct secret before calling update().
+    """
+    store_file = tmp_path / "patches.jsonl"
+    store = PatchStore(store_file)
+
+    patch = MemoryPatch(
+        file_path="CLAUDE.md",
+        before_content="A",
+        after_content="B",
+        unified_diff="...",
+        rationale="Change A to B",
+    )
+    secret = "super-secret"
+    store.save(patch)
+
+    # Simulate what LivingMemory.apply/revert do: sign with the real
+    # secret immediately before calling update().
+    patch.status = "applied"
+    patch.sign(secret)
+    store.update(patch)
+
+    # The persisted patch must still verify against the real secret.
+    reloaded = PatchStore(store_file).get(patch.patch_id)
+    assert reloaded is not None
+    assert reloaded.status == "applied"
+    assert reloaded.verify(secret) is True
+
+    # Negative case: verifying with the wrong (or empty) secret must fail.
+    assert reloaded.verify("wrong-secret") is False
+    assert reloaded.verify("") is False
+
+
 def test_occurrence_tracker(tmp_path: Path) -> None:
     tracker_file = tmp_path / "occurrences.json"
     tracker = OccurrenceTracker(tracker_file)
@@ -145,6 +186,67 @@ def test_pii_filter() -> None:
     assert "[REDACTED_CC]" in res2.filtered_content
     assert "email" in res2.redaction_types
     assert "credit_card" in res2.redaction_types
+
+
+def test_pii_filter_detects_api_key_not_covered_by_pii_detector() -> None:
+    """Regression test for api_key detection being silently dropped.
+
+    Bug: MemoryPIIFilter.__init__ built self._detector = PIIDetector(detect=...)
+    filtered to only types present in PIIDetector._PATTERNS (email, phone,
+    ssn, credit_card, ip_address). filter_content() gated entirely on
+    self._detector.check(content).passed and returned is_clean=True
+    immediately when that passed -- so content containing ONLY an api_key
+    (a type covered by MemoryPIIFilter._REDACTION_PATTERNS but not by
+    PIIDetector) was never flagged or redacted.
+    Root cause: early return based solely on the underlying PIIDetector's
+    check, ignoring active_types not supported by PIIDetector.
+    Fix: filter_content() now also checks _compiled patterns not covered
+    by PIIDetector._PATTERNS before deciding content is clean.
+    """
+    pii_filter = MemoryPIIFilter(detect=["api_key"])
+
+    # Content with ONLY an api_key-shaped string, no email/phone/ssn/etc.
+    content = "Here is my token: sk-abcdefghijklmnopqrstuvwx1234"
+    res = pii_filter.filter_content(content)
+
+    assert res.is_clean is False
+    assert "[REDACTED_KEY]" in res.filtered_content
+    assert "api_key" in res.redaction_types
+
+
+def test_pii_filter_api_key_mixed_with_supported_type_no_regression() -> None:
+    """Mixing api_key with a PIIDetector-supported type must still redact both."""
+    pii_filter = MemoryPIIFilter(detect=["email", "api_key"])
+
+    content = "Contact test@example.com, token sk-abcdefghijklmnopqrstuvwx1234"
+    res = pii_filter.filter_content(content)
+
+    assert res.is_clean is False
+    assert "[REDACTED_EMAIL]" in res.filtered_content
+    assert "[REDACTED_KEY]" in res.filtered_content
+    assert "email" in res.redaction_types
+    assert "api_key" in res.redaction_types
+
+
+def test_pii_filter_redact_false_reports_clean_type_name() -> None:
+    """Regression test for violation-type parsing bug in filter_content(redact=False).
+
+    Bug: redaction_types was computed with
+    v.split("(")[1].rstrip(")").split(":")[0] on strings like
+    "PII detected (email): 2 instance(s)". Tracing through:
+    split("(")[1] -> "email): 2 instance(s)"; rstrip(")") strips the
+    trailing ")" from "instance(s)" giving "email): 2 instance(s";
+    split(":")[0] -> "email)" -- includes a stray ")".
+    Fix: parse with re.search(r'\\(([\\w_]+)\\)', v).group(1) instead.
+    """
+    pii_filter = MemoryPIIFilter(redact=False)
+
+    res = pii_filter.filter_content("Email me at test@example.com")
+    assert res.is_clean is False
+    assert "email" in res.redaction_types
+    assert "email)" not in res.redaction_types
+    # Content must be unmodified when redact=False.
+    assert res.filtered_content == res.original_content
 
 
 def test_file_router() -> None:

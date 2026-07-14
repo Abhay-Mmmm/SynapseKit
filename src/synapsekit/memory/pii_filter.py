@@ -89,21 +89,34 @@ class MemoryPIIFilter:
         """Detect and optionally redact PII from content."""
         check_result = self._detector.check(content)
 
-        if check_result.passed:
+        # The underlying PIIDetector only understands the patterns defined
+        # in PIIDetector._PATTERNS. Active types covered by our own
+        # _REDACTION_PATTERNS but not by PIIDetector (e.g. "api_key") must
+        # still be checked here, otherwise content containing only those
+        # types would be incorrectly reported as clean.
+        extra_violations: list[str] = []
+        for pii_type, (pattern, _replacement) in self._compiled.items():
+            if pii_type in PIIDetector._PATTERNS:
+                continue
+            matches = pattern.findall(content)
+            if matches:
+                extra_violations.append(f"PII detected ({pii_type}): {len(matches)} instance(s)")
+
+        if check_result.passed and not extra_violations:
             return PIIFilterResult(
                 is_clean=True,
                 original_content=content,
                 filtered_content=content,
             )
 
+        all_violations = check_result.violations + extra_violations
+
         if not self._redact:
             return PIIFilterResult(
                 is_clean=False,
                 original_content=content,
                 filtered_content=content,
-                redaction_types=[
-                    v.split("(")[1].rstrip(")").split(":")[0] for v in check_result.violations
-                ],
+                redaction_types=[self._parse_violation_type(v) for v in all_violations],
             )
 
         # Apply redactions
@@ -125,3 +138,13 @@ class MemoryPIIFilter:
             redacted_count=total_redacted,
             redaction_types=types_found,
         )
+
+    @staticmethod
+    def _parse_violation_type(violation: str) -> str:
+        """Extract the PII type name from a violation string.
+
+        Violation strings look like ``"PII detected (email): 2 instance(s)"``;
+        this pulls out the ``email`` portion.
+        """
+        match = re.search(r"\(([\w_]+)\)", violation)
+        return match.group(1) if match else violation

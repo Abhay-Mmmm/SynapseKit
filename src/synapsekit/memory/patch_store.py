@@ -35,8 +35,12 @@ class PatchStore:
         return patch
 
     def update(self, patch: MemoryPatch) -> None:
-        """Re-sign and persist the updated patch by appending a new line."""
-        patch.sign()
+        """Persist the updated patch by appending a new line.
+
+        Callers are responsible for (re-)signing the patch with the
+        appropriate secret *before* calling this method. Signing here
+        would clobber any secret-signed signature with an unsigned one.
+        """
         self._append_line(patch.to_dict())
 
     def get(self, patch_id: str) -> MemoryPatch | None:
