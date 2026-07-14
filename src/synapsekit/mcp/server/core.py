@@ -31,7 +31,14 @@ class MCPServer:
 
     #: Class names accepted as a source target (RAG / agent types).
     _SUPPORTED_TARGET_NAMES: frozenset[str] = frozenset(
-        {"RAG", "RAGPipeline", "FunctionCallingAgent", "ReActAgent", "AgentExecutor"}
+        {
+            "RAG",
+            "RAGPipeline",
+            "FunctionCallingAgent",
+            "ReActAgent",
+            "AgentExecutor",
+            "KnowledgeMesh",
+        }
     )
 
     def __init__(
@@ -83,7 +90,37 @@ class MCPServer:
         # ------------------------------------------------------------------ #
         # RAG Mode
         # ------------------------------------------------------------------ #
-        if target is not None and type(target).__name__ in ("RAG", "RAGPipeline"):
+        if target is not None and type(target).__name__ == "KnowledgeMesh":
+            tools_map = {tool.name: tool for tool in target.as_mcp_tools()}
+
+            @server.list_tools()
+            async def list_tools() -> list[Tool]:
+                return [
+                    Tool(
+                        name=tool.name,
+                        description=tool.description,
+                        inputSchema=getattr(tool, "parameters", {}),
+                    )
+                    for tool in tools_map.values()
+                ]
+
+            @server.call_tool()
+            async def call_tool(
+                name: str, arguments: dict[str, Any] | None = None
+            ) -> list[TextContent]:
+                tool = tools_map.get(name)
+                if tool is None:
+                    return [TextContent(type="text", text=f"Unknown tool: {name}")]
+
+                try:
+                    res = await tool.run(**(arguments or {}))
+                    if res.is_error:
+                        return [TextContent(type="text", text=f"Error: {res.error}")]
+                    return [TextContent(type="text", text=res.output)]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"Tool error: {e}")]
+
+        elif target is not None and type(target).__name__ in ("RAG", "RAGPipeline"):
 
             @server.list_tools()
             async def list_tools() -> list[Tool]:

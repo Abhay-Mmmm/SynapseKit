@@ -45,3 +45,11 @@ class VectorStore(ABC):
 
     def load(self, path: str) -> None:
         raise NotImplementedError(f"{type(self).__name__} does not support load()")
+
+    def delete_by_metadata(self, key: str, values: set[str]) -> int:
+        """Delete all entries whose ``metadata[key]`` is in ``values``.
+
+        Returns the number of deleted entries. Backends that do not support
+        deletion should leave this raising ``NotImplementedError``.
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not support delete_by_metadata()")

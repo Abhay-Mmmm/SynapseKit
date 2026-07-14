@@ -5,6 +5,7 @@ from .base import Document
 from .bigquery import BigQueryLoader
 from .hubspot import HubSpotLoader
 from .markdown import MarkdownLoader
+from .mesh import GitRepoLoader, LocalMdLoader, MeshPrivacyFilter
 from .mongodb import MongoDBLoader
 from .onedrive import OneDriveLoader
 from .s3 import S3Loader
@@ -34,6 +35,7 @@ __all__ = [
     "GCSLoader",
     "GitHubLoader",
     "GitLoader",
+    "GitRepoLoader",
     "GoogleCalendarLoader",
     "GoogleDriveLoader",
     "GoogleSheetsLoader",
@@ -44,7 +46,9 @@ __all__ = [
     "LaTeXLoader",
     "JSONLoader",
     "JiraLoader",
+    "LocalMdLoader",
     "MarkdownLoader",
+    "MeshPrivacyFilter",
     "MongoDBLoader",
     "NotionLoader",
     "ObsidianLoader",
@@ -102,6 +106,7 @@ _LOADERS = {
     "GCSLoader": ".gcs",
     "GitHubLoader": ".github",
     "GitLoader": ".git",
+    "GitRepoLoader": ".mesh",
     "GoogleDriveLoader": ".google_drive",
     "GoogleSheetsLoader": ".google_sheets",
     "HubSpotLoader": ".hubspot",
@@ -135,7 +140,9 @@ _LOADERS = {
     "GoogleCalendarLoader": ".google_calendar",
     "HackerNewsLoader": ".hackernews",
     "IntercomLoader": ".intercom",
+    "LocalMdLoader": ".mesh",
     "RedditLoader": ".reddit",
+    "MeshPrivacyFilter": ".mesh",
     "TrelloLoader": ".trello",
     "TwitterLoader": ".twitter",
     "ZendeskLoader": ".zendesk",

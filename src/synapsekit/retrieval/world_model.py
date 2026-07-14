@@ -8,6 +8,7 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from itertools import pairwise
+from pathlib import Path
 from typing import Any, Literal, Protocol
 
 from .._compat import run_sync
@@ -727,6 +728,147 @@ class ExternalWorldGraphBackend:
         raise self._unsupported()
 
 
+class KuzuWorldGraphBackend(InMemoryWorldGraphBackend):
+    """Optional Kuzu-backed world graph with an in-memory query mirror.
+
+    Kuzu is intentionally optional. The in-memory mirror keeps the full
+    ``GraphBackend`` behavior available in-process while entity/relation/event
+    writes are mirrored to Kuzu when the package is installed.
+    """
+
+    def __init__(
+        self,
+        path: str | Path,
+        resolver: EntityResolver | None = None,
+    ) -> None:
+        super().__init__(resolver=resolver)
+        try:
+            import kuzu
+        except ImportError:
+            raise ImportError("kuzu required: pip install synapsekit[kuzu]") from None
+
+        self.path = Path(path).expanduser()
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._db = kuzu.Database(str(self.path))
+        self._conn = kuzu.Connection(self._db)
+        self._ensure_kuzu_schema()
+
+    def upsert_entity(self, entity: EntityMention, doc_id: str) -> WorldModelNode:
+        node = super().upsert_entity(entity, doc_id)
+        self._persist_entity(node)
+        self._persist_document(doc_id)
+        self._execute(
+            "MATCH (d:Document {id: $doc_id}), (e:Entity {id: $entity_id}) "
+            "MERGE (d)-[:MENTIONS]->(e)",
+            {"doc_id": doc_id, "entity_id": node.id},
+        )
+        return node
+
+    def upsert_relation(self, relation: RelationMention, doc_id: str) -> WorldModelEdge | None:
+        edge = super().upsert_relation(relation, doc_id)
+        if edge is None:
+            return None
+        self._persist_document(doc_id)
+        self._persist_edge(edge)
+        return edge
+
+    def add_event(self, event: EventMention, doc_id: str) -> WorldModelNode:
+        node = super().add_event(event, doc_id)
+        self._persist_entity(node)
+        self._persist_document(doc_id)
+        return node
+
+    def _ensure_kuzu_schema(self) -> None:
+        statements = [
+            """
+            CREATE NODE TABLE IF NOT EXISTS Entity(
+                id STRING,
+                name STRING,
+                kind STRING,
+                aliases STRING,
+                confidence DOUBLE,
+                provenance STRING,
+                created_at STRING,
+                updated_at STRING,
+                PRIMARY KEY (id)
+            )
+            """,
+            "CREATE NODE TABLE IF NOT EXISTS Document(id STRING, PRIMARY KEY (id))",
+            "CREATE REL TABLE IF NOT EXISTS MENTIONS(FROM Document TO Entity)",
+            """
+            CREATE REL TABLE IF NOT EXISTS RELATES(
+                FROM Entity TO Entity,
+                id STRING,
+                predicate STRING,
+                confidence DOUBLE,
+                causal BOOL,
+                provenance STRING,
+                valid_at STRING,
+                valid_until STRING
+            )
+            """,
+        ]
+        for statement in statements:
+            self._execute(statement)
+
+    def _persist_document(self, doc_id: str) -> None:
+        self._execute("MERGE (:Document {id: $id})", {"id": doc_id})
+
+    def _persist_entity(self, node: WorldModelNode) -> None:
+        self._execute(
+            """
+            MERGE (e:Entity {id: $id})
+            SET e.name = $name,
+                e.kind = $kind,
+                e.aliases = $aliases,
+                e.confidence = $confidence,
+                e.provenance = $provenance,
+                e.created_at = $created_at,
+                e.updated_at = $updated_at
+            """,
+            {
+                "id": node.id,
+                "name": node.name,
+                "kind": node.type,
+                "aliases": json.dumps(sorted(node.aliases)),
+                "confidence": node.confidence,
+                "provenance": json.dumps(sorted(node.provenance)),
+                "created_at": node.created_at.isoformat(),
+                "updated_at": node.updated_at.isoformat(),
+            },
+        )
+
+    def _persist_edge(self, edge: WorldModelEdge) -> None:
+        self._execute(
+            """
+            MATCH (s:Entity {id: $subject_id}), (o:Entity {id: $object_id})
+            MERGE (s)-[r:RELATES {id: $id}]->(o)
+            SET r.predicate = $predicate,
+                r.confidence = $confidence,
+                r.causal = $causal,
+                r.provenance = $provenance,
+                r.valid_at = $valid_at,
+                r.valid_until = $valid_until
+            """,
+            {
+                "id": edge.id,
+                "subject_id": edge.subject_id,
+                "object_id": edge.object_id,
+                "predicate": edge.predicate,
+                "confidence": edge.confidence,
+                "causal": edge.causal,
+                "provenance": json.dumps(sorted(edge.provenance)),
+                "valid_at": edge.valid_at.isoformat() if edge.valid_at else None,
+                "valid_until": edge.valid_until.isoformat() if edge.valid_until else None,
+            },
+        )
+
+    def _execute(self, query: str, parameters: dict[str, Any] | None = None) -> Any:
+        if parameters is None:
+            return self._conn.execute(query)
+        return self._conn.execute(query, parameters)
+
+
 class CausalLinker:
     """Scores candidate causal edges with optional NeuroSymbolicAgent-style verifier."""
 
@@ -924,6 +1066,14 @@ class WorldModelRAG:
             )
         )
 
+    @classmethod
+    def kuzu(
+        cls, path: str | Path, resolver: EntityResolver | None = None
+    ) -> KuzuWorldGraphBackend:
+        """Create an optional Kuzu graph backend for ``WorldModelRAG``."""
+
+        return KuzuWorldGraphBackend(path, resolver=resolver)
+
     async def ingest(self, docs: list[str] | list[Any]) -> None:
         """Ingest documents into both the vector index and world graph."""
         for doc in docs:
@@ -958,6 +1108,20 @@ class WorldModelRAG:
     def ingest_sync(self, docs: list[str] | list[Any]) -> None:
         """Sync wrapper for ``ingest``."""
         run_sync(self.ingest(docs))
+
+    def delete_by_metadata(self, key: str, values: set[str]) -> int:
+        """Delete vector-store entries whose ``metadata[key]`` is in ``values``.
+
+        Returns the number of deleted entries, or ``0`` if the underlying
+        vector store does not support deletion.
+        """
+        delete = getattr(self.vector_store, "delete_by_metadata", None)
+        if not callable(delete):
+            return 0
+        try:
+            return int(delete(key, values))
+        except NotImplementedError:
+            return 0
 
     async def query(
         self,
@@ -1031,6 +1195,8 @@ class WorldModelRAG:
         if isinstance(backend, str):
             if backend == "in_memory":
                 return InMemoryWorldGraphBackend(resolver=resolver)
+            if backend == "kuzu":
+                return KuzuWorldGraphBackend(Path.home() / ".synapsekit" / "world_model.kuzu")
             return ExternalWorldGraphBackend(backend)
         return backend
 

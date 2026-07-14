@@ -331,5 +331,47 @@ class InMemoryVectorStore(VectorStore):
         self._index.clear()
         self._update_index(self._metadata, base=0)
 
+    def delete_by_metadata(self, key: str, values: set[str]) -> int:
+        """Delete all entries whose ``metadata[key]`` is in ``values``.
+
+        Rebuilds the internal buffer, text/metadata lists, and inverted index
+        without the matching rows. Returns the number of deleted entries.
+        """
+        if not values or not self._texts:
+            return 0
+
+        self._consolidate()
+        keep_indices = [
+            i for i, meta in enumerate(self._metadata) if meta.get(key) not in values
+        ]
+        removed = len(self._texts) - len(keep_indices)
+        if removed == 0:
+            return 0
+
+        if self._vectors is not None and keep_indices:
+            new_vectors = self._vectors[keep_indices]
+        else:
+            new_vectors = None
+
+        self._texts = [self._texts[i] for i in keep_indices]
+        self._metadata = [self._metadata[i] for i in keep_indices]
+
+        if new_vectors is not None and new_vectors.shape[0] > 0:
+            dim = new_vectors.shape[1]
+            cap = max(256, new_vectors.shape[0])
+            self._buf = np.empty((cap, dim), dtype=np.float32)
+            self._buf[: new_vectors.shape[0]] = new_vectors
+            self._consolidated = new_vectors.shape[0]
+            self._vectors = self._buf[: self._consolidated]
+        else:
+            self._buf = None
+            self._consolidated = 0
+            self._vectors = None
+
+        self._pending.clear()
+        self._index.clear()
+        self._update_index(self._metadata, base=0)
+        return removed
+
     def __len__(self) -> int:
         return len(self._texts)
