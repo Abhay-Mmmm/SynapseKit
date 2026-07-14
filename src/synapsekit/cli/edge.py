@@ -120,7 +120,6 @@ def _download_model(model: EdgeModel, cache_root: Path, force: bool) -> Path:
         repo_id=model.repo_id,
         filename=model.filename,
         local_dir=str(destination_dir),
-        local_dir_use_symlinks=False,
         force_download=force,
     )
     downloaded_path = Path(downloaded)

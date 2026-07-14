@@ -2,7 +2,15 @@ import inspect
 
 import pytest
 
-from synapsekit import AgentSwarm, AuctionResult, AuctionType, Bid, BidStrategy, MarketPolicy, SwarmResult
+from synapsekit import (
+    AgentSwarm,
+    AuctionResult,
+    AuctionType,
+    Bid,
+    BidStrategy,
+    MarketPolicy,
+    SwarmResult,
+)
 from synapsekit.agents import AgentFederation, AgentMetadata, InMemoryAgentRegistry, Reputation
 from synapsekit.agents.agent_swarm import CoalitionFormer
 
@@ -233,9 +241,7 @@ async def test_synthetic_bids_use_reputation_when_agent_has_no_bidder():
         reputation=reputation,
     )
 
-    auction = await swarm.auction(
-        "Review code", swarm.federation.discover(), task_category="code"
-    )
+    auction = await swarm.auction("Review code", swarm.federation.discover(), task_category="code")
 
     assert isinstance(auction, AuctionResult)
     assert auction.bids[0].estimated_quality == 0.9

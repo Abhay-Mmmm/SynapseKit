@@ -5,7 +5,7 @@ They verify:
   - All top-level exports are importable.
   - Version string is valid semver.
   - All 31 LLM provider modules are importable without optional deps installed.
-  - All 37 loaders are discoverable via the lazy __getattr__ mechanism.
+  - All 67 loader exports are discoverable via the lazy __getattr__ mechanism.
   - All async interfaces are proper coroutines (inspect.iscoroutinefunction).
   - Key classes instantiate with no exceptions when given mock dependencies.
 """
@@ -183,6 +183,7 @@ LOADER_NAMES = [
     "GCSLoader",
     "GitHubLoader",
     "GitLoader",
+    "GitRepoLoader",
     "GoogleDriveLoader",
     "GoogleSheetsLoader",
     "GoogleCalendarLoader",
@@ -193,7 +194,9 @@ LOADER_NAMES = [
     "LaTeXLoader",
     "JSONLoader",
     "JiraLoader",
+    "LocalMdLoader",
     "MarkdownLoader",
+    "MeshPrivacyFilter",
     "MongoDBLoader",
     "NotionLoader",
     "ObsidianLoader",
@@ -236,7 +239,7 @@ def test_all_loaders_in_all_list():
 
 
 def test_loader_count_matches_spec():
-    """We have exactly 64 names in the loaders __all__ (includes Document + StringLoader)."""
+    """We have exactly 67 names in the loaders __all__ (includes Document + StringLoader)."""
     import synapsekit.loaders as loaders_mod
 
     assert len(loaders_mod.__all__) == len(LOADER_NAMES)

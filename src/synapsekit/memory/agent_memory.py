@@ -9,7 +9,9 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from typing import Any
 
+from ..retrieval.property_graph import PropertyGraphBackend
 from .backends import (
+    GraphMemoryBackend,
     InMemoryMemoryBackend,
     PostgresMemoryBackend,
     RedisMemoryBackend,
@@ -30,6 +32,7 @@ class AgentMemory:
         path: str | None = None,
         redis_url: str = "redis://localhost:6379",
         postgres_dsn: str | None = None,
+        store: PropertyGraphBackend | None = None,
         embedder: EmbedderFn | None = None,
         llm: Any | None = None,
         max_episodes: int = 100,
@@ -40,6 +43,7 @@ class AgentMemory:
             path=path,
             redis_url=redis_url,
             postgres_dsn=postgres_dsn,
+            graph_store=store,
         )
         self._embedder = embedder
         self._llm = llm
@@ -53,6 +57,7 @@ class AgentMemory:
         path: str | None,
         redis_url: str,
         postgres_dsn: str | None,
+        graph_store: PropertyGraphBackend | None,
     ) -> BaseMemoryBackend:
         if isinstance(backend, BaseMemoryBackend):
             return backend
@@ -66,6 +71,8 @@ class AgentMemory:
             if not postgres_dsn:
                 raise ValueError("postgres_dsn is required when backend='postgres'")
             return PostgresMemoryBackend(postgres_dsn)
+        if backend == "graph":
+            return GraphMemoryBackend(graph_store)
         raise ValueError(f"Unknown backend: {backend!r}")
 
     @staticmethod

@@ -19,6 +19,7 @@ def requires_human_confirmation(
 
     def _wrap(func: F, _reason: str | None) -> F:
         if inspect.iscoroutinefunction(func):
+
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 return await func(*args, **kwargs)
@@ -28,6 +29,7 @@ def requires_human_confirmation(
             async_wrapper._requires_confirmation = True  # type: ignore[attr-defined]
             return cast(F, async_wrapper)
         else:
+
             @functools.wraps(func)
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
                 return func(*args, **kwargs)
@@ -39,11 +41,11 @@ def requires_human_confirmation(
 
     # Called as @requires_human_confirmation (no parentheses) — reason is the function
     if callable(reason):
-        return _wrap(cast(F, reason), None)
+        return _wrap(reason, None)  # type: ignore[arg-type]
 
     # Called as @requires_human_confirmation() or @requires_human_confirmation("text")
     def decorator(func: F) -> F:
-        return _wrap(func, cast("str | None", reason))
+        return _wrap(func, reason)  # type: ignore[arg-type]
 
     return decorator
 

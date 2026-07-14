@@ -289,6 +289,22 @@ from .loaders.web import WebLoader
 from .loaders.wikipedia import WikipediaLoader
 from .mcp import MCPClient, MCPServer, MCPToolAdapter
 from .memory import AgentMemory as PersistentAgentMemory
+from .memory import (
+    DiffConflictError,
+    FileDiffEngine,
+    GraphAgentMemory,
+    GraphMemoryBackend,
+    LivingMemory,
+    MemoryFileCategory,
+    MemoryFileRouter,
+    MemoryPatch,
+    MemoryPIIFilter,
+    OccurrenceRecord,
+    OccurrenceTracker,
+    PatchStatus,
+    PatchStore,
+    PIIFilterResult,
+)
 from .memory.buffer import BufferMemory
 from .memory.conversation import ConversationMemory
 from .memory.entity import EntityMemory
@@ -298,6 +314,21 @@ from .memory.smart_context import SmartContextManager
 from .memory.sqlite import SQLiteConversationMemory
 from .memory.summary_buffer import SummaryBufferMemory
 from .memory.token_buffer import TokenBufferMemory
+from .mesh import (
+    CrossProjectEntityResolver,
+    DuplicationDetector,
+    DuplicationMatch,
+    GitRepoLoader,
+    KnowledgeMesh,
+    LocalMdLoader,
+    MeshConfig,
+    MeshDaemon,
+    MeshHit,
+    MeshIndexSummary,
+    MeshPrivacyFilter,
+    MeshQueryResult,
+    MeshStatus,
+)
 from .observability import (
     AuditEntry,
     AuditLog,
@@ -340,6 +371,17 @@ from .retrieval.hyde import HyDERetriever
 from .retrieval.mongodb_atlas import MongoDBAtlasVectorStore
 from .retrieval.multi_step import MultiStepRetriever
 from .retrieval.parent_document import ParentDocumentRetriever
+from .retrieval.property_graph import (
+    ExtractedEntity,
+    ExtractedRelationship,
+    GraphVectorStore,
+    KnowledgeGraphExtraction,
+    KnowledgeGraphExtractor,
+    Neo4jPropertyGraphBackend,
+    NetworkXPropertyGraphBackend,
+    PropertyGraphEdge,
+    PropertyGraphNode,
+)
 from .retrieval.query_decomposition import QueryDecompositionRetriever
 from .retrieval.rag_fusion import RAGFusionRetriever
 from .retrieval.retriever import Retriever
@@ -359,6 +401,7 @@ from .retrieval.world_model import (
     HeuristicWorldModelExtractor,
     HybridWorldModelRetriever,
     InMemoryWorldGraphBackend,
+    KuzuWorldGraphBackend,
     LLMWorldModelExtractor,
     RelationMention,
     WorldModelEdge,
@@ -476,6 +519,7 @@ __all__ = [
     # Vector stores
     "VectorStore",
     "InMemoryVectorStore",
+    "GraphVectorStore",
     "ChromaVectorStore",
     "FAISSVectorStore",
     "LanceDBVectorStore",
@@ -507,6 +551,14 @@ __all__ = [
     "SentenceWindowRetriever",
     "GraphRAGRetriever",
     "KnowledgeGraph",
+    "KnowledgeGraphExtraction",
+    "KnowledgeGraphExtractor",
+    "NetworkXPropertyGraphBackend",
+    "Neo4jPropertyGraphBackend",
+    "PropertyGraphNode",
+    "PropertyGraphEdge",
+    "ExtractedEntity",
+    "ExtractedRelationship",
     "StepBackRetriever",
     "WorldModelRAG",
     "ExtractionPolicy",
@@ -520,10 +572,22 @@ __all__ = [
     "HeuristicWorldModelExtractor",
     "HybridWorldModelRetriever",
     "InMemoryWorldGraphBackend",
+    "KuzuWorldGraphBackend",
     "LLMWorldModelExtractor",
     "WorldModelEdge",
     "WorldModelNode",
     "WorldModelQueryResult",
+    "KnowledgeMesh",
+    "MeshConfig",
+    "MeshDaemon",
+    "MeshHit",
+    "MeshIndexSummary",
+    "MeshPrivacyFilter",
+    "MeshQueryResult",
+    "MeshStatus",
+    "CrossProjectEntityResolver",
+    "DuplicationDetector",
+    "DuplicationMatch",
     # Cost intelligence
     "CostTracker",
     "CostRecord",
@@ -533,6 +597,8 @@ __all__ = [
     "CircuitState",
     # Memory / observability
     "PersistentAgentMemory",
+    "GraphAgentMemory",
+    "GraphMemoryBackend",
     "BufferMemory",
     "ConversationMemory",
     "EntityMemory",
@@ -542,6 +608,18 @@ __all__ = [
     "SQLiteConversationMemory",
     "SummaryBufferMemory",
     "TokenBufferMemory",
+    "LivingMemory",
+    "MemoryPatch",
+    "OccurrenceRecord",
+    "MemoryFileCategory",
+    "PatchStatus",
+    "FileDiffEngine",
+    "DiffConflictError",
+    "PatchStore",
+    "OccurrenceTracker",
+    "MemoryPIIFilter",
+    "PIIFilterResult",
+    "MemoryFileRouter",
     "TokenTracer",
     "PrometheusMetrics",
     # Loaders
@@ -567,11 +645,13 @@ __all__ = [
     "GCSLoader",
     "GitHubLoader",
     "GitLoader",
+    "GitRepoLoader",
     "GoogleSheetsLoader",
     "HubSpotLoader",
     "JiraLoader",
     "LaTeXLoader",
     "MarkdownLoader",
+    "LocalMdLoader",
     "ObsidianLoader",
     "MongoDBLoader",
     "DynamoDBLoader",

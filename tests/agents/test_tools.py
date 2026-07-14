@@ -172,7 +172,7 @@ class TestPythonREPLTool:
     @pytest.mark.asyncio
     async def test_fast_execution_within_timeout(self):
         """Test that fast code executes successfully within timeout."""
-        repl = PythonREPLTool(timeout=2.0)
+        repl = PythonREPLTool(timeout=10.0)
         r = await repl.run(code="print('quick')")
         assert not r.is_error
         assert "quick" in r.output

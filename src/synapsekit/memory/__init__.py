@@ -1,5 +1,7 @@
 from .agent_memory import AgentMemory
 from .backends import (
+    GraphAgentMemory,
+    GraphMemoryBackend,
     InMemoryMemoryBackend,
     PostgresMemoryBackend,
     RedisMemoryBackend,
@@ -8,9 +10,15 @@ from .backends import (
 from .base import BaseMemoryBackend, MemoryRecord
 from .buffer import BufferMemory
 from .conversation import ConversationMemory
+from .diff_engine import DiffConflictError, FileDiffEngine
 from .entity import EntityMemory
+from .file_router import MemoryFileRouter
 from .hybrid import HybridMemory
 from .knowledge_graph_memory import KnowledgeGraphMemory
+from .living_memory import LivingMemory
+from .living_types import MemoryFileCategory, MemoryPatch, OccurrenceRecord, PatchStatus
+from .patch_store import OccurrenceTracker, PatchStore
+from .pii_filter import MemoryPIIFilter, PIIFilterResult
 from .readonly_shared_memory import ReadOnlySharedMemory
 from .redis import RedisConversationMemory
 from .smart_context import SmartContextManager
@@ -23,6 +31,8 @@ __all__ = [
     "AgentMemory",
     "BaseMemoryBackend",
     "MemoryRecord",
+    "GraphAgentMemory",
+    "GraphMemoryBackend",
     "InMemoryMemoryBackend",
     "SQLiteMemoryBackend",
     "RedisMemoryBackend",
@@ -39,4 +49,16 @@ __all__ = [
     "SummaryBufferMemory",
     "TokenBufferMemory",
     "VectorConversationMemory",
+    "LivingMemory",
+    "MemoryPatch",
+    "OccurrenceRecord",
+    "MemoryFileCategory",
+    "PatchStatus",
+    "FileDiffEngine",
+    "DiffConflictError",
+    "PatchStore",
+    "OccurrenceTracker",
+    "MemoryPIIFilter",
+    "PIIFilterResult",
+    "MemoryFileRouter",
 ]
