@@ -28,6 +28,6 @@ bench: ## Run micro-benchmarks
 	uv run python benchmarks/report.py benchmarks/benchmark.json
 
 bench-compare: ## Compare against saved baseline (fail >10% regression)
-	PYTHONHASHSEED=0 uv run pytest benchmarks/ -c benchmarks/pytest.ini --benchmark-compare --benchmark-compare-fail=10%
+	PYTHONHASHSEED=0 uv run pytest benchmarks/ -c benchmarks/pytest.ini --benchmark-compare --benchmark-compare-fail=mean:10%
 
 check: lint format-check typecheck test deptry ## Run all checks
