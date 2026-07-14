@@ -270,7 +270,7 @@ def test_agent_rejects_zero_max_proposals() -> None:
 
 
 def test_parse_constraint_response_rejects_bare_invalid_json() -> None:
-    with pytest.raises(VerificationFailure, match="[Jj][Ss][Oo][Nn]"):
+    with pytest.raises(VerificationFailure, match=r"[Jj][Ss][Oo][Nn]"):
         parse_constraint_response("{not valid json at all}")
 
 
