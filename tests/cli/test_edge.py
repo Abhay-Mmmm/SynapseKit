@@ -113,10 +113,14 @@ def test_edge_quantize_runs_external_binary(tmp_path: Path, capsys) -> None:
     input_model = tmp_path / "input.gguf"
     input_model.write_text("model")
 
-    # Write a tiny executable that exits successfully
-    fake_binary = tmp_path / "llama-quantize"
-    fake_binary.write_text("#!/usr/bin/env python3\nimport sys\nsys.exit(0)\n")
-    fake_binary.chmod(0o755)
+    # Write a platform-appropriate fake executable that exits successfully
+    if sys.platform == "win32":
+        fake_binary = tmp_path / "llama-quantize.bat"
+        fake_binary.write_text("@echo off\nexit /b 0\n")
+    else:
+        fake_binary = tmp_path / "llama-quantize"
+        fake_binary.write_text("#!/usr/bin/env python3\nimport sys\nsys.exit(0)\n")
+        fake_binary.chmod(0o755)
 
     args = argparse.Namespace(
         edge_command="quantize",
