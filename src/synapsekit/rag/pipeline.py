@@ -77,7 +77,7 @@ class RAGPipeline:
         chunks = self._splitter.split(text)
         if not chunks:
             return
-        meta = [metadata or {} for _ in chunks]
+        meta = [dict(metadata or {}) for _ in chunks]
         await self.config.retriever.add(chunks, meta)
 
     async def add_documents(self, docs: list[Document]) -> None:
@@ -129,7 +129,7 @@ class RAGPipeline:
         """Retrieve context, build prompt, stream LLM response, update memory."""
         from ..observe.runtime import end_span, record_exception, start_span
 
-        k = top_k or self.config.retrieval_top_k
+        k = top_k if top_k is not None else self.config.retrieval_top_k
         rag_span = start_span(
             "rag.ask",
             {
@@ -236,6 +236,7 @@ class RAGPipeline:
 
         tracer = self.config.tracer
         t0 = tracer.start_timer() if tracer else 0.0
+        tokens_before = dict(self.config.llm.tokens_used) if tracer else {}
         call_id = 0
 
         answer_parts: list[str] = []
@@ -261,9 +262,15 @@ class RAGPipeline:
 
                 if tracer:
                     used = self.config.llm.tokens_used
+                    input_delta = max(
+                        0, int(used["input"]) - int(tokens_before.get("input", 0))
+                    )
+                    output_delta = max(
+                        0, int(used["output"]) - int(tokens_before.get("output", 0))
+                    )
                     call_id = tracer.record(
-                        input_tokens=used["input"],
-                        output_tokens=used["output"],
+                        input_tokens=input_delta,
+                        output_tokens=output_delta,
                         latency_ms=tracer.elapsed_ms(t0),
                     )
 

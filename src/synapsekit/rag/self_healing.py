@@ -97,7 +97,7 @@ class SelfHealingRAG:
         top_k: int | None = None,
         metadata_filter: dict | None = None,
     ) -> str:
-        k = top_k or self._retrieval_top_k
+        k = top_k if top_k is not None else self._retrieval_top_k
         max_attempts = min(len(self._strategies), 1 + self._max_retries)
         scores: list[float] = []
         last_answer = ""
@@ -212,13 +212,18 @@ class SelfHealingRAG:
 
         tracer = self._tracer
         t0 = tracer.start_timer() if tracer else 0.0
+        tokens_before = dict(self._llm.tokens_used) if tracer else {}
         answer = await self._llm.generate_with_messages(messages)
 
         if tracer:
             used = self._llm.tokens_used
+            input_delta = max(0, int(used["input"]) - int(tokens_before.get("input", 0)))
+            output_delta = max(
+                0, int(used["output"]) - int(tokens_before.get("output", 0))
+            )
             tracer.record(
-                input_tokens=used["input"],
-                output_tokens=used["output"],
+                input_tokens=input_delta,
+                output_tokens=output_delta,
                 latency_ms=tracer.elapsed_ms(t0),
             )
 
