@@ -87,7 +87,11 @@ class GraphMemoryBackend(BaseMemoryBackend):
         bucket = self._records.get(agent_id)
         if bucket is None:
             return False
-        return bucket.pop(record_id, None) is not None
+        record = bucket.pop(record_id, None)
+        if record is None:
+            return False
+        self.graph_store.remove_node(self._node_id(record))
+        return True
 
     async def clear(self, agent_id: str, memory_type: MemoryType | None = None) -> int:
         bucket = self._records.get(agent_id)

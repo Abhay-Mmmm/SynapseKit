@@ -61,3 +61,48 @@ async def test_graph_memory_backend_delete_clear_and_prune() -> None:
     assert await memory.count(agent_id="agent-a") == 1
     assert await memory.clear(agent_id="agent-a", memory_type="semantic") == 1
     assert await memory.delete(agent_id="agent-a", record_id=kept.id) is False
+
+
+@pytest.mark.asyncio
+async def test_graph_memory_backend_delete_removes_graph_node_and_edges() -> None:
+    """Regression for bug 2: delete() must remove the node (and incident
+    edges) from graph_store, not just pop the record from self._records.
+    AgentMemory.consolidate() relies on this to avoid leaking graph nodes
+    and dangling edges unboundedly during normal operation."""
+    graph = NetworkXPropertyGraphBackend()
+    backend = GraphMemoryBackend(store=graph)
+    memory = AgentMemory(backend=backend)
+
+    first = await memory.store(
+        agent_id="agent-a",
+        content="User prefers graph-aware RAG",
+        memory_type="semantic",
+    )
+    second = await memory.store(
+        agent_id="agent-a",
+        content="Apollo depends on Platform Team",
+        memory_type="episodic",
+        metadata={
+            "related_to": [first.id],
+            "relation_type": "supports",
+            "weight": 0.8,
+        },
+    )
+
+    first_node_id = f"memory:agent-a:{first.id}"
+    second_node_id = f"memory:agent-a:{second.id}"
+    assert graph.get_node(first_node_id) is not None
+    assert graph.get_node(second_node_id) is not None
+    assert graph.neighbors(first_node_id) != []
+
+    deleted = await memory.delete(agent_id="agent-a", record_id=first.id)
+
+    assert deleted is True
+    assert graph.get_node(first_node_id) is None
+    # The edge from second -> first must be gone too (no dangling edge
+    # referencing a deleted memory id).
+    remaining_edge_endpoints = {(edge.source, edge.target) for edge in graph.edges()}
+    assert (second_node_id, first_node_id) not in remaining_edge_endpoints
+    assert graph.neighbors(second_node_id) == []
+    # The second record's own node must be untouched.
+    assert graph.get_node(second_node_id) is not None

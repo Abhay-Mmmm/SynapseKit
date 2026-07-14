@@ -98,6 +98,8 @@ class PropertyGraphBackend(Protocol):
 
     def get_edge(self, edge_id: str) -> PropertyGraphEdge | None: ...
 
+    def remove_node(self, node_id: str) -> bool: ...
+
     def neighbors(
         self, node_id: str, *, direction: Literal["both", "out", "in"] = "both"
     ) -> list[str]: ...
@@ -143,6 +145,7 @@ class NetworkXPropertyGraphBackend:
         self._edges: dict[str, PropertyGraphEdge] = {}
         self._label_to_id: dict[str, str] = {}
         self._documents_by_node: dict[str, set[str]] = defaultdict(set)
+        self._nodes_by_document: dict[str, set[str]] = defaultdict(set)
         try:
             import networkx as nx  # type: ignore[import-not-found]
         except ImportError:
@@ -166,6 +169,7 @@ class NetworkXPropertyGraphBackend:
         source_doc = node.properties.get("source_doc") or node.properties.get("source")
         if source_doc:
             self._documents_by_node[node.id].add(str(source_doc))
+            self._nodes_by_document[str(source_doc)].add(node.id)
         self._graph.add_node(
             node.id,
             label=node.label,
@@ -179,6 +183,8 @@ class NetworkXPropertyGraphBackend:
         if source_doc:
             self._documents_by_node[edge.source].add(str(source_doc))
             self._documents_by_node[edge.target].add(str(source_doc))
+            self._nodes_by_document[str(source_doc)].add(edge.source)
+            self._nodes_by_document[str(source_doc)].add(edge.target)
         self._graph.add_edge(
             edge.source,
             edge.target,
@@ -186,6 +192,10 @@ class NetworkXPropertyGraphBackend:
             relation=edge.relation,
             **edge.properties,
         )
+
+    def node_ids_for_document(self, source_doc: str) -> list[str]:
+        """O(1) lookup of node ids tagged with the given source_doc."""
+        return sorted(self._nodes_by_document.get(source_doc, set()))
 
     def get_node(self, node_id: str) -> PropertyGraphNode | None:
         return self._nodes.get(node_id)
@@ -253,6 +263,40 @@ class NetworkXPropertyGraphBackend:
 
     def node_id_for_label(self, label: str) -> str | None:
         return self._label_to_id.get(_normalize(label))
+
+    def remove_node(self, node_id: str) -> bool:
+        """Remove a node and all edges incident to it.
+
+        Returns True if the node existed and was removed, False otherwise.
+        """
+        node = self._nodes.pop(node_id, None)
+        if node is None:
+            return False
+        for edge in self._incident_edges(node_id):
+            self._edges.pop(edge.id, None)
+        stale_labels = [
+            label for label, mapped_id in self._label_to_id.items() if mapped_id == node_id
+        ]
+        for label in stale_labels:
+            self._label_to_id.pop(label, None)
+        for source_doc in self._documents_by_node.pop(node_id, set()):
+            self._nodes_by_document.get(source_doc, set()).discard(node_id)
+        if self.uses_networkx:
+            if self._graph.has_node(node_id):
+                self._graph.remove_node(node_id)
+        else:
+            self._graph.nodes.pop(node_id, None)
+            for key in [
+                edge_key for edge_key in self._graph.edges if node_id in edge_key[:2]
+            ]:
+                self._graph.edges.pop(key, None)
+            self._graph.outgoing.pop(node_id, None)
+            self._graph.incoming.pop(node_id, None)
+            for neighbors in self._graph.outgoing.values():
+                neighbors.discard(node_id)
+            for neighbors in self._graph.incoming.values():
+                neighbors.discard(node_id)
+        return True
 
     def seed_ids_for_text(self, text: str) -> list[str]:
         normalized = _normalize(text)
@@ -379,6 +423,18 @@ class Neo4jPropertyGraphBackend:
             )
             return sorted(str(row["id"]) for row in rows)
 
+    def remove_node(self, node_id: str) -> bool:
+        with self._driver.session(database=self._database) as session:
+            result = session.run(
+                """
+                MATCH (n:PropertyGraphNode {id: $id})
+                DETACH DELETE n
+                RETURN count(n) AS deleted
+                """,
+                id=node_id,
+            ).single()
+            return bool(result is not None and result["deleted"] > 0)
+
     def traverse(
         self,
         seed_ids: list[str],
@@ -386,17 +442,23 @@ class Neo4jPropertyGraphBackend:
         max_hops: int = 2,
         min_confidence: float = 0.0,
     ) -> tuple[list[PropertyGraphNode], list[PropertyGraphEdge]]:
+        if max_hops < 0:
+            raise ValueError("max_hops must be non-negative")
+        # Neo4j's Cypher grammar requires variable-length relationship pattern
+        # bounds (e.g. *0..N) to be integer literals, not query parameters.
+        # We validate/cast to int here and interpolate that int (never a raw
+        # string) directly into the query text to avoid a CypherSyntaxError.
+        hops = int(max_hops)
         memory = NetworkXPropertyGraphBackend()
         with self._driver.session(database=self._database) as session:
             rows = session.run(
-                """
-                MATCH path=(n:PropertyGraphNode)-[r:RELATED*0..$hops]-(m:PropertyGraphNode)
+                f"""
+                MATCH path=(n:PropertyGraphNode)-[r:RELATED*0..{hops}]-(m:PropertyGraphNode)
                 WHERE n.id IN $ids
                 UNWIND nodes(path) AS node
                 RETURN DISTINCT node
                 """,
                 ids=seed_ids,
-                hops=max_hops,
             )
             for row in rows:
                 data = dict(row["node"])
@@ -410,8 +472,8 @@ class Neo4jPropertyGraphBackend:
                     )
                 )
             edge_rows = session.run(
-                """
-                MATCH path=(n:PropertyGraphNode)-[r:RELATED*1..$hops]-(m:PropertyGraphNode)
+                f"""
+                MATCH path=(n:PropertyGraphNode)-[r:RELATED*1..{hops}]-(m:PropertyGraphNode)
                 WHERE n.id IN $ids
                 UNWIND relationships(path) AS rel
                 WITH DISTINCT rel
@@ -419,7 +481,6 @@ class Neo4jPropertyGraphBackend:
                 RETURN startNode(rel).id AS source, endNode(rel).id AS target, rel
                 """,
                 ids=seed_ids,
-                hops=max_hops,
                 min_confidence=min_confidence,
             )
             for row in edge_rows:
@@ -716,8 +777,50 @@ class GraphVectorStore(VectorStore):
             max_hops=self.max_hops,
             min_confidence=self.min_confidence,
         )
+        nodes, edges = self._scope_to_tenant(nodes, edges, metadata_filter)
         graph_doc_ids = self.graph.document_ids_for_nodes([node.id for node in nodes])
         return self._fuse(vector_results, graph_doc_ids, nodes, edges, top_k, metadata_filter)
+
+    def _scope_to_tenant(
+        self,
+        nodes: list[PropertyGraphNode],
+        edges: list[PropertyGraphEdge],
+        metadata_filter: dict | None,
+    ) -> tuple[list[PropertyGraphNode], list[PropertyGraphEdge]]:
+        """Drop graph nodes/edges belonging to documents outside metadata_filter.
+
+        This must run before any node/edge data is fused into result metadata
+        so a filtered search never leaks another tenant's entities/relations,
+        even when the traversal itself ran over the full shared graph.
+        """
+        if not metadata_filter:
+            return nodes, edges
+
+        def _doc_allowed(source_doc: str | None) -> bool:
+            if source_doc is None:
+                return False
+            doc_meta = self._doc_metadata_by_id.get(source_doc)
+            if doc_meta is None:
+                return False
+            return all(doc_meta.get(key) == value for key, value in metadata_filter.items())
+
+        allowed_node_ids: set[str] = set()
+        filtered_nodes: list[PropertyGraphNode] = []
+        for node in nodes:
+            source_doc = node.properties.get("source_doc") or node.properties.get("source")
+            if _doc_allowed(str(source_doc) if source_doc is not None else None):
+                allowed_node_ids.add(node.id)
+                filtered_nodes.append(node)
+
+        filtered_edges: list[PropertyGraphEdge] = []
+        for edge in edges:
+            source_doc = edge.properties.get("source_doc") or edge.properties.get("source")
+            edge_doc_allowed = _doc_allowed(str(source_doc) if source_doc is not None else None)
+            endpoints_allowed = edge.source in allowed_node_ids and edge.target in allowed_node_ids
+            if edge_doc_allowed and endpoints_allowed:
+                filtered_edges.append(edge)
+
+        return filtered_nodes, filtered_edges
 
     async def search_mmr(
         self,
@@ -769,13 +872,18 @@ class GraphVectorStore(VectorStore):
         seed_for_text = getattr(self.graph, "seed_ids_for_text", None)
         if callable(seed_for_text):
             seed_ids.extend(seed_for_text(query))
+        node_ids_for_document = getattr(self.graph, "node_ids_for_document", None)
         for result in vector_results:
             source = (result.get("metadata") or {}).get("source")
             if source is None:
                 continue
-            for node in self.graph.nodes():
-                if str(node.properties.get("source_doc")) == str(source):
-                    seed_ids.append(node.id)
+            if callable(node_ids_for_document):
+                # O(1) index lookup instead of scanning every graph node.
+                seed_ids.extend(node_ids_for_document(str(source)))
+            else:
+                for node in self.graph.nodes():
+                    if str(node.properties.get("source_doc")) == str(source):
+                        seed_ids.append(node.id)
         return list(dict.fromkeys(seed_ids))
 
     def _fuse(
