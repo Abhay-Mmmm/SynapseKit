@@ -28,13 +28,27 @@ class TestSelectiveDisclosure:
         assert all(r.kind == EventKind.RETRIEVAL.value for r in loaded.records)
 
     def test_selective_bundle_still_verifies(self, tmp_path, bundle_path):
+        from .conftest import manifest_keys_as_trusted
+
+        out = export_selective_bundle(
+            bundle_path, tmp_path / "subset.zip", kinds=[EventKind.LLM_CALL.value]
+        )
+        # MATCH requires pinning; pin the original signer's keys carried in
+        # the selective manifest.
+        result = verify(out, trusted_keys=manifest_keys_as_trusted(out))
+        assert result.ok
+        assert result.errors == []
+        assert result.record_count == 1
+
+    def test_selective_bundle_unpinned_is_unverifiable(self, tmp_path, bundle_path):
+        from synapsekit.audit.types import Verdict
+
         out = export_selective_bundle(
             bundle_path, tmp_path / "subset.zip", kinds=[EventKind.LLM_CALL.value]
         )
         result = verify(out)
-        assert result.ok
-        assert result.errors == []
-        assert result.record_count == 1
+        assert result.verdict == Verdict.UNVERIFIABLE
+        assert result.trust_anchor == "none"
 
     def test_original_signatures_are_carried_through_unchanged(self, tmp_path, bundle_path):
         original = load_bundle(bundle_path)
@@ -76,12 +90,14 @@ class TestSelectiveDisclosure:
     def test_multi_batch_bundle_selective_disclosure_still_verifies(self, tmp_path, sample_records):
         from synapsekit.audit import SigningPolicy, export_audit_bundle
 
+        from .conftest import manifest_keys_as_trusted
+
         path = export_audit_bundle(
             sample_records, SigningPolicy.ed25519(), tmp_path / "multi.zip", batch_size=2
         )
         out = export_selective_bundle(
             path, tmp_path / "multi_subset.zip", kinds=[EventKind.DECISION.value]
         )
-        result = verify(out)
+        result = verify(out, trusted_keys=manifest_keys_as_trusted(out))
         assert result.ok
         assert result.record_count == 1
