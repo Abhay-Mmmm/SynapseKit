@@ -9,6 +9,19 @@ SynapseKit uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+---
+
+## [2.0.0] — 2026-07-15
+
+Major release: the v2.0/v2.1 paradigm feature set plus a repo-wide production hardening pass. Includes breaking changes — see below.
+
+### Breaking changes
+
+- **`from synapsekit import AgentMemory` now returns the persistent memory class** (was the deprecated `AgentScratchpad` alias). The scratchpad is available as `AgentScratchpad`; `PersistentAgentMemory` remains a working alias for the persistent class.
+- **Audit `verify()` without `trusted_keys` now returns `UNVERIFIABLE` instead of `MATCH`** — a self-signed bundle proves only internal consistency, not signer authenticity. Pass `trusted_keys={key_id: public_key}` for a real `MATCH`.
+- **Audit bundle schema is now 1.2** (RFC 6962 Merkle construction and record-schema changes); bundles produced by earlier schema versions are not compatible with this verifier.
+- **LLM `max_retries` now defaults to 2** (was 0) and retries are scoped to timeouts, connection errors, and 429/5xx.
+
 ### Added
 
 - **`LivingMemory`** — file-routed agent memory that proposes diffable, signed patches instead of overwriting memory files directly; `MemoryFileRouter` categorizes content and resolves target paths; `MemoryPatch` / `FileDiffEngine` / `PatchStore` manage the propose, approve, apply, revert lifecycle; `MemoryPIIFilter` redacts sensitive content before it lands on disk; `OccurrenceTracker` for repeated-mention promotion; `synapsekit memory review / approve / reject / apply / revert / log` CLI; closes #741; contributed by [@DhruvGarg111](https://github.com/DhruvGarg111)
