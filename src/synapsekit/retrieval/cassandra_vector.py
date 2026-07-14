@@ -157,12 +157,20 @@ class CassandraVectorStore(VectorStore):
     def _cass_search_sync(
         self, q_vec: list[float], top_k: int, metadata_filter: dict | None
     ) -> list[dict]:
-        vec_literal = "[" + ",".join(str(x) for x in q_vec) + "]"
+        # top_k lands in the LIMIT clause. Validate/cast to a positive int so it can
+        # never carry injected CQL. The query vector goes in the ``ORDER BY ... ANN OF``
+        # clause, where the CQL grammar requires a vector literal, not a bound marker,
+        # so it cannot be parameterised; we build it from floats coerced above in
+        # ``add`` (they originate from the embedding backend, never user text).
+        limit = int(top_k)
+        if limit <= 0:
+            raise ValueError(f"top_k must be a positive integer, got {top_k!r}")
+        vec_literal = "[" + ",".join(str(float(x)) for x in q_vec) + "]"
         cql = (
             f"SELECT text, metadata FROM {self._keyspace}.{self._table_name} "
-            f"ORDER BY embedding ANN OF {vec_literal} LIMIT {top_k}"
+            f"ORDER BY embedding ANN OF {vec_literal} LIMIT %s"
         )
-        rows = self._session.execute(cql)
+        rows = self._session.execute(cql, (limit,))
         results = []
         for row in rows:
             try:

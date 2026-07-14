@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from ..llm.base import BaseLLM
 from .retriever import Retriever
 
@@ -63,12 +65,14 @@ class RAGFusionRetriever:
         """Retrieve with RAG Fusion: multi-query + RRF."""
         queries = await self._generate_queries(query)
 
-        all_results: list[list[str]] = []
-        for q in queries:
-            results = await self._retriever.retrieve(
-                q, top_k=top_k, metadata_filter=metadata_filter
-            )
-            all_results.append(results)
+        # Fan out all query variants concurrently rather than awaiting each in turn.
+        # gather preserves input order, so RRF ranking stays deterministic.
+        all_results: list[list[str]] = await asyncio.gather(
+            *[
+                self._retriever.retrieve(q, top_k=top_k, metadata_filter=metadata_filter)
+                for q in queries
+            ]
+        )
 
         fused = self._reciprocal_rank_fusion(all_results)
         return fused[:top_k]
