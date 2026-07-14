@@ -128,7 +128,12 @@ class TestRedactionBeforeHashing:
         path = export_audit_bundle(
             tracer.drain(), SigningPolicy.ed25519(), tmp_path / "redacted.zip"
         )
-        result = verify(path)
+        # MATCH requires a pinned key now; pin the bundle's own advertised
+        # keys since this test only asserts that redaction doesn't break
+        # structural verification.
+        from .conftest import manifest_keys_as_trusted
+
+        result = verify(path, trusted_keys=manifest_keys_as_trusted(path))
         assert result.ok
 
         from .conftest import read_zip_entries

@@ -47,7 +47,7 @@ class MinimaxLLM(BaseLLM):
                     "Content-Type": "application/json",
                     "Accept": "text/event-stream",
                 },
-                timeout=120.0,
+                timeout=self.config.timeout if self.config.timeout is not None else 120.0,
             )
         return self._client
 

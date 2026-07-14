@@ -61,7 +61,7 @@ class FederatedRetriever:
         top_k: int | None = None,
         metadata_filter: dict | None = None,
     ) -> list[dict]:
-        k = top_k or self._top_k
+        k = top_k if top_k is not None else self._top_k
 
         tasks = [self._fetch_source(source, query, k, metadata_filter) for source in self._sources]
         gathered = await asyncio.gather(*tasks, return_exceptions=True)

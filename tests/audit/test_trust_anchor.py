@@ -29,14 +29,17 @@ def _forge_bundle(tmp_path):
 
 
 class TestTrustAnchorPinning:
-    def test_forged_bundle_passes_self_consistency_check_without_pinning(self, tmp_path):
-        # This documents the known, unavoidable limitation of
-        # self-consistency-only verification: a fully self-consistent
-        # forgery is indistinguishable from a real bundle unless the
-        # verifier pins an independently-known key.
+    def test_forged_bundle_is_unverifiable_without_pinning(self, tmp_path):
+        # A fully self-consistent forgery used to slip through as MATCH
+        # when unpinned. The security cap now downgrades any unpinned
+        # would-be MATCH to UNVERIFIABLE: self-consistency proves the
+        # bundle wasn't edited after export, never who produced it.
+        from synapsekit.audit.types import Verdict
+
         forged_path, _ = _forge_bundle(tmp_path)
         result = verify(forged_path)
-        assert result.ok
+        assert result.verdict == Verdict.UNVERIFIABLE
+        assert not result.ok
         assert result.trust_anchor == "none"
 
     def test_forged_bundle_is_rejected_when_the_real_key_is_pinned(self, tmp_path):
@@ -77,6 +80,88 @@ class TestTrustAnchorPinning:
 
         result = verify(forged_path, trusted_keys={attacker_key_id: real_key_bytes})
         assert not result.ok
+
+
+class TestUnpinnedMatchCap:
+    """Regression for #811 (SECURITY): an otherwise-clean but UNPINNED
+    verification must be capped at UNVERIFIABLE, never reported as MATCH —
+    checking signatures against keys sourced from the bundle itself proves
+    self-consistency, not authenticity.
+    """
+
+    def test_unpinned_valid_bundle_is_unverifiable_not_match(self, tmp_path, sample_records):
+        from synapsekit.audit.types import Verdict
+
+        policy = SigningPolicy.ed25519(key_id="release-key")
+        path = export_audit_bundle(sample_records, policy, tmp_path / "b.zip")
+
+        result = verify(path)  # no trusted_keys
+        assert result.verdict == Verdict.UNVERIFIABLE
+        assert not result.ok
+        assert result.trust_anchor == "none"
+        # The cap must explain *why* — so callers can tell this apart from
+        # a corrupted or unsupported bundle.
+        assert any("no trusted key was pinned" in e for e in result.errors)
+
+    def test_pinning_the_real_key_restores_match(self, tmp_path, sample_records):
+        from synapsekit.audit.types import Verdict
+
+        policy = SigningPolicy.ed25519(key_id="release-key")
+        path = export_audit_bundle(sample_records, policy, tmp_path / "b.zip")
+
+        trusted = {"release-key": policy.provider.public_key_bytes()}
+        result = verify(path, trusted_keys=trusted)
+        assert result.verdict == Verdict.MATCH
+        assert result.ok
+        assert result.trust_anchor == "pinned"
+
+    def test_tamper_is_drift_even_when_unpinned(self, tmp_path, sample_records):
+        # DRIFT (active contradiction) must never be masked or downgraded
+        # by the unpinned cap — the cap only touches a would-be MATCH.
+        from synapsekit.audit.types import Verdict
+
+        from .conftest import (
+            dump_trace_lines,
+            load_trace_lines,
+            read_zip_entries,
+            write_zip_entries,
+        )
+
+        policy = SigningPolicy.ed25519(key_id="release-key")
+        path = export_audit_bundle(sample_records, policy, tmp_path / "b.zip")
+
+        entries = read_zip_entries(path)
+        records = load_trace_lines(entries)
+        records[0]["hash"] = "0" * 64
+        dump_trace_lines(entries, records)
+        tampered = tmp_path / "tampered.zip"
+        write_zip_entries(tampered, entries)
+
+        result = verify(tampered)  # unpinned
+        assert result.verdict == Verdict.DRIFT
+        assert not result.ok
+
+    def test_unsupported_schema_stays_unverifiable_with_no_bogus_cap_message(
+        self, tmp_path, bundle_path
+    ):
+        # A genuinely-UNVERIFIABLE (not merely capped) result must not gain
+        # the "no trusted key" explanation — the cap only fires on MATCH.
+        import json
+
+        from synapsekit.audit.types import Verdict
+
+        from .conftest import read_zip_entries, write_zip_entries
+
+        entries = read_zip_entries(bundle_path)
+        manifest = json.loads(entries["manifest.json"])
+        manifest["schema_version"] = "99.0"
+        entries["manifest.json"] = json.dumps(manifest).encode("utf-8")
+        out = tmp_path / "bad_schema.zip"
+        write_zip_entries(out, entries)
+
+        result = verify(out)
+        assert result.verdict == Verdict.UNVERIFIABLE
+        assert not any("no trusted key was pinned" in e for e in result.errors)
 
 
 class TestManifestMetadataAuthentication:

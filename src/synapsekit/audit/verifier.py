@@ -451,6 +451,36 @@ def _resolve_verdict(findings: list[Finding]) -> Verdict:
     return Verdict.MATCH
 
 
+#: The explanation attached whenever an otherwise-clean bundle is capped
+#: at UNVERIFIABLE because no key was pinned. Kept as a constant so tests
+#: and the CLI can recognise this specific, expected cause.
+UNPINNED_MESSAGE = (
+    "no trusted key was pinned, so signatures were checked only against keys embedded "
+    "in the bundle itself — this proves the bundle wasn't edited after export, but NOT "
+    "who produced it. Pass trusted_keys (obtained independently of the bundle) for a "
+    "MATCH. Treating as UNVERIFIABLE."
+)
+
+
+def _apply_trust_anchor_cap(
+    verdict: Verdict, findings: list[Finding], *, trust_anchor: str
+) -> tuple[Verdict, list[Finding]]:
+    """Cap a would-be MATCH at UNVERIFIABLE when no key was pinned.
+
+    Without ``trusted_keys``, every signature was verified against a
+    public key read from the bundle's *own* manifest — a fully
+    self-consistent forgery is indistinguishable from a genuine bundle
+    (see the module docstring). Reporting that as MATCH invites callers
+    to treat "the bundle didn't lie about itself" as "the bundle is
+    authentic". So a clean, unpinned verification is downgraded to
+    UNVERIFIABLE; DRIFT (active contradiction) and an already-UNVERIFIABLE
+    verdict are left exactly as they are.
+    """
+    if trust_anchor == "none" and verdict is Verdict.MATCH:
+        return Verdict.UNVERIFIABLE, [*findings, (Verdict.UNVERIFIABLE, UNPINNED_MESSAGE)]
+    return verdict, findings
+
+
 def _record_metrics(m: AuditMetrics, findings: list[Finding]) -> None:
     for _verdict, message in {(f[0], f[1]) for f in findings}:
         m.record_verification_failure(reason=_categorize(message))
@@ -578,9 +608,12 @@ def verify(
                 _verify_manifest_signature(original_manifest, trusted_keys=trusted_keys)
             )
         findings.extend(_verify_selective(loaded, trusted_keys=trusted_keys))
+        verdict, findings = _apply_trust_anchor_cap(
+            _resolve_verdict(findings), findings, trust_anchor=trust_anchor
+        )
         _record_metrics(m, findings)
         return VerificationResult(
-            verdict=_resolve_verdict(findings),
+            verdict=verdict,
             errors=[f for _, f in findings],
             record_count=len(records),
             batch_count=len(
@@ -711,10 +744,13 @@ def verify(
             )
         )
 
+    verdict, findings = _apply_trust_anchor_cap(
+        _resolve_verdict(findings), findings, trust_anchor=trust_anchor
+    )
     _record_metrics(m, findings)
 
     return VerificationResult(
-        verdict=_resolve_verdict(findings),
+        verdict=verdict,
         errors=[f for _, f in findings],
         record_count=len(records),
         batch_count=len(batches),

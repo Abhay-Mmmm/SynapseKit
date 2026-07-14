@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import heapq
+import logging
+
 from rank_bm25 import BM25Okapi
 
 from .retriever import Retriever
+
+logger = logging.getLogger(__name__)
 
 
 class HybridSearchRetriever:
@@ -32,9 +37,14 @@ class HybridSearchRetriever:
         self._bm25: BM25Okapi | None = None
 
     def add_documents(self, texts: list[str]) -> None:
-        """Build the BM25 index from the given texts."""
-        self._documents = list(texts)
-        tokenized = [doc.lower().split() for doc in texts]
+        """Add texts to the BM25 index, accumulating with any prior documents.
+
+        Incremental calls extend the index rather than replacing it, so previously
+        added documents remain searchable. BM25Okapi has no incremental update, so
+        the index is rebuilt over the full accumulated corpus.
+        """
+        self._documents.extend(texts)
+        tokenized = [doc.lower().split() for doc in self._documents]
         self._bm25 = BM25Okapi(tokenized)
 
     async def retrieve(
@@ -43,18 +53,28 @@ class HybridSearchRetriever:
         top_k: int = 5,
         metadata_filter: dict | None = None,
     ) -> list[str]:
-        """Retrieve using RRF fusion of BM25 + vector scores."""
-        # Vector retrieval
-        vector_results = await self._retriever.retrieve(
-            query, top_k=top_k * 2, metadata_filter=metadata_filter
-        )
+        """Retrieve using RRF fusion of BM25 + vector scores.
 
-        # BM25 scoring
+        If the vector store fails, fall back to BM25-only results rather than
+        failing the whole query.
+        """
+        # Vector retrieval — tolerate a downed vector store by degrading to BM25.
+        vector_results: list[str] = []
+        try:
+            vector_results = await self._retriever.retrieve(
+                query, top_k=top_k * 2, metadata_filter=metadata_filter
+            )
+        except Exception as exc:
+            logger.warning(
+                "Vector retrieval failed (%s); falling back to BM25-only results.", exc
+            )
+
+        # BM25 scoring — nlargest avoids a full O(n log n) sort of every score.
         bm25_ranked: list[str] = []
         if self._bm25 is not None and self._documents:
             scores = self._bm25.get_scores(query.lower().split())
-            scored_pairs = sorted(enumerate(scores), key=lambda x: x[1], reverse=True)
-            bm25_ranked = [self._documents[i] for i, _ in scored_pairs[: top_k * 2]]
+            top_pairs = heapq.nlargest(top_k * 2, enumerate(scores), key=lambda x: x[1])
+            bm25_ranked = [self._documents[i] for i, _ in top_pairs]
 
         # RRF fusion
         fused_scores: dict[str, float] = {}

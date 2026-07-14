@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import inspect
+
 import pytest
 
 from synapsekit.audit import AuditTracer, EventKind, VerifiableAgent
@@ -265,3 +268,184 @@ class TestAuditedDecorator:
 
         noop()
         assert tracer.records[0].actor == "system"
+
+    def test_async_wrapper_stays_a_coroutine_function(self):
+        # Regression guard per testing standards: the decorator must
+        # preserve coroutine-ness so `await` still works.
+        tracer = AuditTracer()
+
+        @audited(EventKind.TOOL_CALL, tracer=tracer)
+        async def tool() -> str:
+            return "ok"
+
+        assert inspect.iscoroutinefunction(tool)
+
+
+class TestAuditedCancellation:
+    """Regression for #809: cancelling an audited coroutine must propagate
+    CancelledError (a BaseException) and still write an audit record — the
+    old code raised UnboundLocalError from `finally` because `emitted_kind`
+    was never assigned on the BaseException path.
+    """
+
+    @pytest.mark.asyncio
+    async def test_cancelling_an_audited_coroutine_propagates_cancelled_error(self):
+        tracer = AuditTracer()
+        started = asyncio.Event()
+
+        @audited(EventKind.TOOL_CALL, tracer=tracer)
+        async def slow() -> str:
+            started.set()
+            await asyncio.sleep(3600)
+            return "never"
+
+        task = asyncio.ensure_future(slow())
+        await started.wait()
+        task.cancel()
+
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+        # A record MUST still have been written — not swallowed, and not
+        # an UnboundLocalError.
+        assert len(tracer.records) == 1
+        rec = tracer.records[0]
+        assert rec.kind == EventKind.ERROR.value
+        assert rec.payload["status"] == "cancelled"
+        assert rec.payload["error_type"] == "CancelledError"
+
+    def test_sync_wrapper_records_on_keyboard_interrupt_then_reraises(self):
+        # KeyboardInterrupt is also a BaseException, not an Exception —
+        # same failure mode as CancelledError on the sync path.
+        tracer = AuditTracer()
+
+        @audited(EventKind.TOOL_CALL, tracer=tracer)
+        def boom() -> None:
+            raise KeyboardInterrupt
+
+        with pytest.raises(KeyboardInterrupt):
+            boom()
+
+        assert len(tracer.records) == 1
+        assert tracer.records[0].kind == EventKind.ERROR.value
+        assert tracer.records[0].payload["status"] == "cancelled"
+
+
+class _StreamingAgent:
+    """An agent whose streaming methods are async generators."""
+
+    # "stream" infers to SYSTEM_EVENT (single record). "stream_steps"
+    # infers to a paired (TOOL_CALL, TOOL_RESULT) kind — both must route
+    # through the async-generator wrapper, not the sync one.
+    async def stream(self, prompt: str):
+        for token in ("Hel", "lo ", "world"):
+            yield token
+
+    async def stream_steps(self, prompt: str):
+        for token in ("Hel", "lo ", "world"):
+            yield token
+
+    async def stream_failing(self, prompt: str):
+        yield "partial-"
+        raise ValueError("mid-stream boom")
+
+
+class TestAsyncGeneratorInstrumentation:
+    """Regression for #810: async-generator methods must not fall into the
+    sync wrapper (which recorded status:ok with a non-deterministic
+    "<async_generator object at 0x...>" output before any token, and never
+    recorded mid-stream errors).
+    """
+
+    @pytest.mark.asyncio
+    async def test_single_kind_async_gen_records_deterministic_aggregate(self):
+        tracer = AuditTracer()
+        agent = VerifiableAgent(_StreamingAgent(), tracer=tracer)
+
+        chunks = [chunk async for chunk in agent.stream("hi")]
+        assert chunks == ["Hel", "lo ", "world"]
+
+        # "stream" -> SYSTEM_EVENT (single record after completion).
+        assert len(tracer.records) == 1
+        result = tracer.records[0]
+        assert result.kind == EventKind.SYSTEM_EVENT.value
+        assert result.payload["status"] == "ok"
+        # Deterministic aggregate — the joined stream, NOT a repr/address.
+        assert result.payload["output"] == "Hello world"
+        assert result.payload["chunk_count"] == 3
+        assert "0x" not in str(result.payload["output"])
+        assert "async_generator" not in str(result.payload)
+
+    @pytest.mark.asyncio
+    async def test_paired_kind_async_gen_emits_call_then_completed_result(self):
+        tracer = AuditTracer()
+        agent = VerifiableAgent(_StreamingAgent(), tracer=tracer)
+
+        chunks = [chunk async for chunk in agent.stream_steps("hi")]
+        assert chunks == ["Hel", "lo ", "world"]
+
+        # "stream_steps" -> paired (TOOL_CALL, TOOL_RESULT).
+        assert len(tracer.records) == 2
+        call, result = tracer.records
+        assert call.kind == EventKind.TOOL_CALL.value
+        assert "output" not in call.payload  # pre-call has no output
+        assert result.kind == EventKind.TOOL_RESULT.value
+        assert result.parent_id == call.event_id
+        assert result.payload["output"] == "Hello world"
+
+    @pytest.mark.asyncio
+    async def test_recorded_output_is_stable_across_runs(self):
+        # The whole point of the fix: the payload must hash the same every
+        # run. A memory address in the output would break the hash chain.
+        outputs = []
+        for _ in range(2):
+            tracer = AuditTracer()
+            agent = VerifiableAgent(_StreamingAgent(), tracer=tracer)
+            [c async for c in agent.stream("hi")]
+            outputs.append(tracer.records[-1].payload["output"])
+        assert outputs[0] == outputs[1]
+
+    @pytest.mark.asyncio
+    async def test_the_wrapper_is_still_an_async_generator(self):
+        tracer = AuditTracer()
+        agent = VerifiableAgent(_StreamingAgent(), tracer=tracer)
+        assert inspect.isasyncgen(agent.stream("hi"))
+
+    @pytest.mark.asyncio
+    async def test_result_is_only_recorded_after_iteration_completes(self):
+        # The buggy sync wrapper recorded immediately (before any token)
+        # with the generator repr as output; the async-gen wrapper must
+        # only finalize the result record after iteration completes.
+        tracer = AuditTracer()
+        agent = VerifiableAgent(_StreamingAgent(), tracer=tracer)
+        gen = agent.stream_steps("hi")
+        first = await gen.__anext__()
+        assert first == "Hel"
+        # The pre-invocation call exists, but NOT the result yet.
+        assert [r.kind for r in tracer.records] == [EventKind.TOOL_CALL.value]
+        async for _ in gen:  # drain so it finalizes cleanly
+            pass
+        assert tracer.records[-1].kind == EventKind.TOOL_RESULT.value
+
+    @pytest.mark.asyncio
+    async def test_mid_stream_error_is_recorded_and_reraised(self):
+        tracer = AuditTracer()
+        agent = VerifiableAgent(_StreamingAgent(), tracer=tracer)
+
+        collected = []
+        with pytest.raises(ValueError, match="mid-stream boom"):
+            async for chunk in agent.stream_failing("hi"):
+                collected.append(chunk)
+
+        assert collected == ["partial-"]
+        # An ERROR record must be written (the old sync wrapper never saw
+        # the mid-stream failure at all).
+        error = tracer.records[-1]
+        assert error.kind == EventKind.ERROR.value
+        assert error.payload["status"] == "error"
+        assert error.payload["error_type"] == "ValueError"
+        # What streamed before the failure is captured deterministically.
+        # (Frozen payload: lists become tuples — see types.deep_freeze.)
+        assert error.payload["output"] == ("partial-",)
+        assert error.payload["chunk_count"] == 1
+        assert "0x" not in str(error.payload)
