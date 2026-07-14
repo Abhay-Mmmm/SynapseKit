@@ -182,3 +182,75 @@ class TestTomlLoader:
         import inspect
 
         assert inspect.iscoroutinefunction(ConfigLoader("/tmp/x.env").aload)
+
+
+class TestValueBasedRedaction:
+    """Issue #808: redact credential-shaped VALUES even when the key name is
+    innocuous (DATABASE_URL, DSN, CREDENTIAL, ...). Must not over-redact."""
+
+    def test_database_url_with_embedded_creds_redacted(self, tmp_path):
+        p = tmp_path / ".env"
+        p.write_text("DATABASE_URL=postgres://user:s3cretpw@db.internal:5432/app\n")
+        docs = ConfigLoader(str(p)).load()
+        assert "s3cretpw" not in docs[0].text
+        assert "user:s3cretpw" not in docs[0].text
+        assert "postgres://" not in docs[0].text
+        assert "***" in docs[0].text
+
+    def test_redis_url_with_password_redacted(self, tmp_path):
+        p = tmp_path / ".env"
+        p.write_text("CACHE=redis://:hunter2@cache.internal:6379/0\n")
+        docs = ConfigLoader(str(p)).load()
+        assert "hunter2" not in docs[0].text
+
+    def test_credential_key_with_token_prefix_redacted(self, tmp_path):
+        p = tmp_path / ".env"
+        p.write_text("CREDENTIAL=ghp_016C7d9E1234abcdEFGH5678ijkl90MNOP\n")
+        docs = ConfigLoader(str(p)).load()
+        assert "ghp_016C7d9E1234abcdEFGH5678ijkl90MNOP" not in docs[0].text
+        assert "***" in docs[0].text
+
+    def test_aws_access_key_value_redacted(self, tmp_path):
+        p = tmp_path / ".env"
+        p.write_text("ACCESS=AKIAIOSFODNN7EXAMPLE\n")
+        docs = ConfigLoader(str(p)).load()
+        assert "AKIAIOSFODNN7EXAMPLE" not in docs[0].text
+
+    def test_high_entropy_opaque_token_redacted(self, tmp_path):
+        p = tmp_path / ".env"
+        p.write_text("SESSION=aB3xK9pLmQ7rT2vW8yZ1cD5fG0hJ4nR\n")
+        docs = ConfigLoader(str(p)).load()
+        assert "aB3xK9pLmQ7rT2vW8yZ1cD5fG0hJ4nR" not in docs[0].text
+
+    # --- must NOT over-redact ordinary config ---------------------------------
+
+    def test_ordinary_value_not_redacted(self, tmp_path):
+        p = tmp_path / ".env"
+        p.write_text("TIMEOUT=30\nHOST=localhost\nLOG_LEVEL=info\n")
+        docs = ConfigLoader(str(p)).load()
+        assert "TIMEOUT: 30" in docs[0].text
+        assert "HOST: localhost" in docs[0].text
+        assert "LOG_LEVEL: info" in docs[0].text
+        assert "***" not in docs[0].text
+
+    def test_plain_url_without_userinfo_not_redacted(self, tmp_path):
+        p = tmp_path / ".env"
+        p.write_text("ENDPOINT=https://api.example.com/v1/health\n")
+        docs = ConfigLoader(str(p)).load()
+        assert "https://api.example.com/v1/health" in docs[0].text
+        assert "***" not in docs[0].text
+
+    def test_file_path_and_version_not_redacted(self, tmp_path):
+        p = tmp_path / ".env"
+        p.write_text("LOGFILE=/var/log/app/service.log\nVERSION=1.7.0\n")
+        docs = ConfigLoader(str(p)).load()
+        assert "/var/log/app/service.log" in docs[0].text
+        assert "VERSION: 1.7.0" in docs[0].text
+        assert "***" not in docs[0].text
+
+    def test_ini_value_with_creds_redacted(self, tmp_path):
+        p = tmp_path / "config.ini"
+        p.write_text("[db]\nconnection=mysql://root:toor@127.0.0.1/db\nport=3306\n")
+        docs = ConfigLoader(str(p)).load()
+        assert "toor" not in docs[0].text
+        assert "port: 3306" in docs[0].text

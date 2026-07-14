@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import inspect
+import logging
 import math
 import re
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from typing import Any
+
+import numpy as np
 
 from ..retrieval.property_graph import PropertyGraphBackend
 from .backends import (
@@ -18,6 +21,8 @@ from .backends import (
     SQLiteMemoryBackend,
 )
 from .base import BaseMemoryBackend, MemoryRecord, MemoryType
+
+logger = logging.getLogger(__name__)
 
 EmbedderFn = Callable[[str], list[float] | Awaitable[list[float]]]
 
@@ -113,6 +118,46 @@ class AgentMemory:
             return 0.0
         return dot / (na * nb)
 
+    @staticmethod
+    def _batch_cosine(
+        query: list[float], embeddings: list[list[float]]
+    ) -> list[float]:
+        """Cosine similarity of ``query`` against every embedding.
+
+        Builds a single numpy matrix and computes all similarities with one
+        ``matrix @ q`` instead of an interpreted per-record Python loop.
+        Records whose dimensionality does not match the query score 0.0,
+        matching the scalar :meth:`_cosine` fallback exactly.
+        """
+        n = len(embeddings)
+        if n == 0:
+            return []
+        q = np.asarray(query, dtype=np.float64)
+        dim = q.shape[0]
+        q_norm = float(np.linalg.norm(q))
+        scores = [0.0] * n
+        if dim == 0 or q_norm == 0.0:
+            return scores
+
+        rows: list[np.ndarray] = []
+        row_index: list[int] = []
+        for i, emb in enumerate(embeddings):
+            if emb and len(emb) == dim:
+                rows.append(np.asarray(emb, dtype=np.float64))
+                row_index.append(i)
+        if not rows:
+            return scores
+
+        matrix = np.vstack(rows)
+        norms = np.linalg.norm(matrix, axis=1)
+        dots = matrix @ q
+        with np.errstate(divide="ignore", invalid="ignore"):
+            sims = dots / (norms * q_norm)
+        sims = np.where(norms == 0.0, 0.0, sims)
+        for idx, sim in zip(row_index, sims, strict=True):
+            scores[idx] = float(sim)
+        return scores
+
     async def _store_record(
         self,
         *,
@@ -191,18 +236,24 @@ class AgentMemory:
         q_emb = await self._embed_text(query)
         now = self._now()
 
-        def _score(rec: MemoryRecord) -> float:
-            sim = self._cosine(q_emb, rec.embedding)
+        sims = self._batch_cosine(q_emb, [rec.embedding for rec in records])
+        scored: list[tuple[float, MemoryRecord]] = []
+        for rec, sim in zip(records, sims, strict=True):
             age_days = max((now - rec.created_at).total_seconds() / 86400.0, 0.0)
             recency = 1.0 / (1.0 + age_days)
             access = min(rec.access_count, 20) / 20.0
             semantic_boost = 0.05 if rec.memory_type == "semantic" else 0.0
-            return (0.82 * sim) + (0.12 * recency) + (0.04 * access) + semantic_boost
+            score = (0.82 * sim) + (0.12 * recency) + (0.04 * access) + semantic_boost
+            scored.append((score, rec))
 
-        ranked = sorted(records, key=_score, reverse=True)[:top_k]
+        # Stable sort preserving prior insertion order among equal scores,
+        # matching the pure-Python ``sorted(..., key=...)`` behaviour.
+        order = sorted(
+            range(len(scored)), key=lambda i: scored[i][0], reverse=True
+        )
+        ranked = [scored[i][1] for i in order[:top_k]]
 
-        for rec in ranked:
-            await self._backend.touch(agent_id, rec.id)
+        await self._backend.touch_many(agent_id, [rec.id for rec in ranked])
 
         return ranked
 
@@ -222,8 +273,12 @@ class AgentMemory:
                 summary_text = str(summary).strip()
                 if summary_text:
                     return summary_text
-            except Exception:
-                pass
+            except (ValueError, RuntimeError, OSError, TimeoutError) as exc:
+                logger.warning(
+                    "LLM consolidation failed (%s); falling back to "
+                    "deterministic summarization",
+                    exc,
+                )
 
         # Fallback deterministic summarization
         unique = list(dict.fromkeys(s[2:] for s in lines))
@@ -246,7 +301,12 @@ class AgentMemory:
             source = episodic[-limit:]
         elif len(episodic) > self._max_episodes:
             overflow = len(episodic) - self._max_episodes
-            source = episodic[:overflow]
+            # Consolidate at least ``consolidation_window`` episodes at a
+            # time. When only slightly over the cap, ``overflow`` is often 1,
+            # which would summarize a single episode into its own semantic
+            # record and never actually compact memory.
+            take = max(overflow, self._consolidation_window)
+            source = episodic[:take]
         else:
             source = episodic[-min(self._consolidation_window, len(episodic)) :]
 

@@ -168,10 +168,21 @@ class TestReservedRedactionFields:
 
 
 class TestVerdictCategorization:
-    def test_valid_bundle_is_match(self, bundle_path):
-        result = verify(bundle_path)
+    def test_valid_pinned_bundle_is_match(self, bundle_path):
+        # MATCH now requires a pinned trust anchor; pin the bundle's own
+        # advertised keys since this test only asserts structural validity.
+        from .conftest import manifest_keys_as_trusted
+
+        result = verify(bundle_path, trusted_keys=manifest_keys_as_trusted(bundle_path))
         assert result.verdict == Verdict.MATCH
         assert result.ok is True
+
+    def test_valid_unpinned_bundle_is_unverifiable(self, bundle_path):
+        # Without pinning, a would-be MATCH is capped at UNVERIFIABLE.
+        result = verify(bundle_path)
+        assert result.verdict == Verdict.UNVERIFIABLE
+        assert result.ok is False
+        assert result.trust_anchor == "none"
 
     def test_tampered_hash_is_drift_not_unverifiable(self, tmp_path, bundle_path):
         entries = read_zip_entries(bundle_path)
