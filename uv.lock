@@ -10875,6 +10875,7 @@ browser = [
     { name = "playwright" },
 ]
 cassandra = [
+    { name = "astrapy" },
     { name = "cassandra-driver" },
 ]
 chroma = [
@@ -11241,6 +11242,7 @@ requires-dist = [
     { name = "arxiv", marker = "extra == 'all'", specifier = ">=2.0" },
     { name = "arxiv", marker = "extra == 'arxiv'", specifier = ">=2.0" },
     { name = "astrapy", marker = "extra == 'all'", specifier = ">=1.0" },
+    { name = "astrapy", marker = "extra == 'cassandra'", specifier = ">=1.0" },
     { name = "asyncpg", marker = "extra == 'all'", specifier = ">=0.29" },
     { name = "asyncpg", marker = "extra == 'postgres'", specifier = ">=0.29" },
     { name = "atlassian-python-api", marker = "extra == 'all'", specifier = ">=3.0" },

@@ -19,6 +19,12 @@ class CharacterTextSplitter(BaseSplitter):
         chunk_size: int = 512,
         chunk_overlap: int = 50,
     ) -> None:
+        if chunk_overlap >= chunk_size:
+            raise ValueError(
+                f"chunk_overlap ({chunk_overlap}) must be smaller than "
+                f"chunk_size ({chunk_size}); otherwise the hard-split step size "
+                f"is <= 0, which loses data or raises."
+            )
         self.separator = separator
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap

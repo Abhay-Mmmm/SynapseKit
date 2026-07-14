@@ -31,6 +31,7 @@ class RedisLLMCache:
         url: str = "redis://localhost:6379",
         prefix: str = "synapsekit:llm:",
         ttl: int | None = None,
+        socket_timeout: float = 5.0,
     ) -> None:
         try:
             import redis
@@ -39,7 +40,14 @@ class RedisLLMCache:
                 "redis required for RedisLLMCache: pip install synapsekit[redis]"
             ) from None
 
-        self._client = redis.Redis.from_url(url, decode_responses=True)
+        # Socket timeouts prevent a dead/slow Redis from hanging the caller
+        # (and, on the async path, from wedging the executor thread indefinitely).
+        self._client = redis.Redis.from_url(
+            url,
+            decode_responses=True,
+            socket_timeout=socket_timeout,
+            socket_connect_timeout=socket_timeout,
+        )
         self._prefix = prefix
         self._ttl = ttl
         self.hits: int = 0
