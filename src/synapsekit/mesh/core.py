@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import sqlite3
+import threading
 import time
 from collections import defaultdict
 from collections.abc import AsyncGenerator, Iterable
@@ -157,22 +159,29 @@ class MeshIndexStore:
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path).expanduser()
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(self.path)
+        # ``check_same_thread=False`` lets us drive the connection from
+        # ``asyncio.to_thread`` worker threads (see ``KnowledgeMesh.reindex``
+        # and ``KnowledgeMesh.query``), while a lock serialises access so the
+        # single shared connection is never touched concurrently.
+        self._conn = sqlite3.connect(self.path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        self._lock = threading.Lock()
         self._ensure_schema()
 
     def close(self) -> None:
         """Close the underlying SQLite connection."""
 
-        self._conn.close()
+        with self._lock:
+            self._conn.close()
 
     def is_file_current(self, path: str, content_hash: str, mtime_ns: int | None) -> bool:
         """Return whether a file has already been indexed at this fingerprint."""
 
-        row = self._conn.execute(
-            "SELECT content_hash, mtime_ns FROM mesh_files WHERE path = ?",
-            (path,),
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT content_hash, mtime_ns FROM mesh_files WHERE path = ?",
+                (path,),
+            ).fetchone()
         if row is None:
             return False
         if str(row["content_hash"]) != content_hash:
@@ -185,64 +194,65 @@ class MeshIndexStore:
         """Mark ``docs`` as active chunks for ``path``."""
 
         now = datetime.now(UTC).isoformat()
-        self._conn.execute("UPDATE mesh_chunks SET active = 0 WHERE path = ?", (path,))
         first_meta = docs[0].metadata if docs else {}
-        self._conn.execute(
-            """
-            INSERT INTO mesh_files(path, content_hash, mtime_ns, size_bytes, repo_root, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(path) DO UPDATE SET
-                content_hash = excluded.content_hash,
-                mtime_ns = excluded.mtime_ns,
-                size_bytes = excluded.size_bytes,
-                repo_root = excluded.repo_root,
-                updated_at = excluded.updated_at
-            """,
-            (
-                path,
-                first_meta.get("content_hash"),
-                first_meta.get("mtime_ns"),
-                first_meta.get("size_bytes"),
-                first_meta.get("repo_root"),
-                now,
-            ),
-        )
-        for doc in docs:
-            meta = dict(doc.metadata)
-            chunk_id = str(meta["chunk_id"])
+        with self._lock:
+            self._conn.execute("UPDATE mesh_chunks SET active = 0 WHERE path = ?", (path,))
             self._conn.execute(
                 """
-                INSERT INTO mesh_chunks(
-                    chunk_id, path, content_hash, line_start, line_end, text, metadata, active, updated_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
-                ON CONFLICT(chunk_id) DO UPDATE SET
-                    path = excluded.path,
+                INSERT INTO mesh_files(path, content_hash, mtime_ns, size_bytes, repo_root, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(path) DO UPDATE SET
                     content_hash = excluded.content_hash,
-                    line_start = excluded.line_start,
-                    line_end = excluded.line_end,
-                    text = excluded.text,
-                    metadata = excluded.metadata,
-                    active = 1,
+                    mtime_ns = excluded.mtime_ns,
+                    size_bytes = excluded.size_bytes,
+                    repo_root = excluded.repo_root,
                     updated_at = excluded.updated_at
                 """,
                 (
-                    chunk_id,
                     path,
-                    meta.get("content_hash"),
-                    meta.get("line_start"),
-                    meta.get("line_end"),
-                    doc.text,
-                    json.dumps(meta, sort_keys=True),
+                    first_meta.get("content_hash"),
+                    first_meta.get("mtime_ns"),
+                    first_meta.get("size_bytes"),
+                    first_meta.get("repo_root"),
                     now,
                 ),
             )
-        self._conn.commit()
+            for doc in docs:
+                meta = dict(doc.metadata)
+                chunk_id = str(meta["chunk_id"])
+                self._conn.execute(
+                    """
+                    INSERT INTO mesh_chunks(
+                        chunk_id, path, content_hash, line_start, line_end, text, metadata, active, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
+                    ON CONFLICT(chunk_id) DO UPDATE SET
+                        path = excluded.path,
+                        content_hash = excluded.content_hash,
+                        line_start = excluded.line_start,
+                        line_end = excluded.line_end,
+                        text = excluded.text,
+                        metadata = excluded.metadata,
+                        active = 1,
+                        updated_at = excluded.updated_at
+                    """,
+                    (
+                        chunk_id,
+                        path,
+                        meta.get("content_hash"),
+                        meta.get("line_start"),
+                        meta.get("line_end"),
+                        doc.text,
+                        json.dumps(meta, sort_keys=True),
+                        now,
+                    ),
+                )
+            self._conn.commit()
 
     def update_status(self, **values: Any) -> None:
         """Persist status key-value pairs."""
 
-        with self._conn:
+        with self._lock, self._conn:
             for key, value in values.items():
                 self._conn.execute(
                     """
@@ -256,7 +266,10 @@ class MeshIndexStore:
     def status_value(self, key: str, default: Any = None) -> Any:
         """Return one status value."""
 
-        row = self._conn.execute("SELECT value FROM mesh_status WHERE key = ?", (key,)).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT value FROM mesh_status WHERE key = ?", (key,)
+            ).fetchone()
         if row is None:
             return default
         return json.loads(str(row["value"]))
@@ -264,7 +277,31 @@ class MeshIndexStore:
     def active_chunk_ids(self) -> set[str]:
         """Return active chunk IDs."""
 
-        rows = self._conn.execute("SELECT chunk_id FROM mesh_chunks WHERE active = 1").fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT chunk_id FROM mesh_chunks WHERE active = 1"
+            ).fetchall()
+        return {str(row["chunk_id"]) for row in rows}
+
+    def filter_active_chunk_ids(self, candidate_ids: Iterable[str]) -> set[str]:
+        """Return the subset of ``candidate_ids`` that are currently active.
+
+        Only the handful of candidate chunk IDs surfaced by a vector query are
+        checked against the index, avoiding materialising the entire active set
+        just to filter ~20 hits. The ``idx_chunks_path_active`` index keeps the
+        ``active = 1`` predicate off a full table scan.
+        """
+
+        candidates = [str(chunk_id) for chunk_id in candidate_ids]
+        if not candidates:
+            return set()
+        placeholders = ",".join("?" for _ in candidates)
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT chunk_id FROM mesh_chunks "
+                f"WHERE chunk_id IN ({placeholders}) AND active = 1",
+                candidates,
+            ).fetchall()
         return {str(row["chunk_id"]) for row in rows}
 
     def active_chunk_ids_for_path(self, path: str) -> set[str]:
@@ -275,17 +312,19 @@ class MeshIndexStore:
         are ingested.
         """
 
-        rows = self._conn.execute(
-            "SELECT chunk_id FROM mesh_chunks WHERE path = ? AND active = 1", (path,)
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT chunk_id FROM mesh_chunks WHERE path = ? AND active = 1", (path,)
+            ).fetchall()
         return {str(row["chunk_id"]) for row in rows}
 
     def active_documents(self) -> list[Document]:
         """Return active indexed chunks as documents."""
 
-        rows = self._conn.execute(
-            "SELECT text, metadata FROM mesh_chunks WHERE active = 1 ORDER BY path, line_start"
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT text, metadata FROM mesh_chunks WHERE active = 1 ORDER BY path, line_start"
+            ).fetchall()
         return [
             Document(text=str(row["text"]), metadata=json.loads(str(row["metadata"])))
             for row in rows
@@ -294,42 +333,48 @@ class MeshIndexStore:
     def counts(self) -> tuple[int, int, int]:
         """Return indexed file, total chunk, and active chunk counts."""
 
-        files = self._conn.execute("SELECT COUNT(*) FROM mesh_files").fetchone()[0]
-        chunks = self._conn.execute("SELECT COUNT(*) FROM mesh_chunks").fetchone()[0]
-        active = self._conn.execute("SELECT COUNT(*) FROM mesh_chunks WHERE active = 1").fetchone()[
-            0
-        ]
+        with self._lock:
+            files = self._conn.execute("SELECT COUNT(*) FROM mesh_files").fetchone()[0]
+            chunks = self._conn.execute("SELECT COUNT(*) FROM mesh_chunks").fetchone()[0]
+            active = self._conn.execute(
+                "SELECT COUNT(*) FROM mesh_chunks WHERE active = 1"
+            ).fetchone()[0]
         return int(files), int(chunks), int(active)
 
     def _ensure_schema(self) -> None:
-        self._conn.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS mesh_files (
-                path TEXT PRIMARY KEY,
-                content_hash TEXT,
-                mtime_ns INTEGER,
-                size_bytes INTEGER,
-                repo_root TEXT,
-                updated_at TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS mesh_chunks (
-                chunk_id TEXT PRIMARY KEY,
-                path TEXT NOT NULL,
-                content_hash TEXT,
-                line_start INTEGER,
-                line_end INTEGER,
-                text TEXT NOT NULL,
-                metadata TEXT NOT NULL,
-                active INTEGER NOT NULL DEFAULT 1,
-                updated_at TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS mesh_status (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            );
-            """
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS mesh_files (
+                    path TEXT PRIMARY KEY,
+                    content_hash TEXT,
+                    mtime_ns INTEGER,
+                    size_bytes INTEGER,
+                    repo_root TEXT,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS mesh_chunks (
+                    chunk_id TEXT PRIMARY KEY,
+                    path TEXT NOT NULL,
+                    content_hash TEXT,
+                    line_start INTEGER,
+                    line_end INTEGER,
+                    text TEXT NOT NULL,
+                    metadata TEXT NOT NULL,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS mesh_status (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+                -- Serves ``WHERE path = ? AND active = 1`` and ``WHERE active = 1``
+                -- lookups on every reindex/query without full table scans.
+                CREATE INDEX IF NOT EXISTS idx_chunks_path_active
+                    ON mesh_chunks(path, active);
+                """
+            )
+            self._conn.commit()
 
 
 class KnowledgeMesh:
@@ -366,34 +411,52 @@ class KnowledgeMesh:
         """Incrementally index changed mesh documents."""
 
         started = time.perf_counter()
-        docs = self._load_documents()
+        # Reading the whole tree (git + markdown loaders) is blocking I/O; run
+        # it in a worker thread so the event loop stays responsive on a large
+        # mesh.
+        docs = await asyncio.to_thread(self._load_documents)
         grouped = _group_by_path(docs)
-        changed_docs: list[Document] = []
-        skipped_chunks = 0
 
-        for path, file_docs in grouped.items():
-            meta = file_docs[0].metadata
-            current = self.store.is_file_current(
-                path,
-                str(meta.get("content_hash", "")),
-                _optional_int(meta.get("mtime_ns")),
-            )
-            if current and not force:
-                skipped_chunks += len(file_docs)
-                continue
-            changed_docs.extend(file_docs)
+        def _select_changed() -> tuple[list[Document], int]:
+            selected: list[Document] = []
+            skipped = 0
+            for path, file_docs in grouped.items():
+                meta = file_docs[0].metadata
+                current = self.store.is_file_current(
+                    path,
+                    str(meta.get("content_hash", "")),
+                    _optional_int(meta.get("mtime_ns")),
+                )
+                if current and not force:
+                    skipped += len(file_docs)
+                    continue
+                selected.extend(file_docs)
+            return selected, skipped
+
+        # Each ``is_file_current`` call is a synchronous SQLite read; batch them
+        # into a single worker-thread hop rather than blocking the loop per file.
+        changed_docs, skipped_chunks = await asyncio.to_thread(_select_changed)
 
         if changed_docs:
             changed_by_path = _group_by_path(changed_docs)
-            stale_chunk_ids: set[str] = set()
-            for path, file_docs in changed_by_path.items():
-                new_chunk_ids = {str(doc.metadata.get("chunk_id")) for doc in file_docs}
-                old_chunk_ids = self.store.active_chunk_ids_for_path(path)
-                stale_chunk_ids.update(old_chunk_ids - new_chunk_ids)
+
+            def _collect_stale() -> set[str]:
+                stale: set[str] = set()
+                for path, file_docs in changed_by_path.items():
+                    new_chunk_ids = {str(doc.metadata.get("chunk_id")) for doc in file_docs}
+                    old_chunk_ids = self.store.active_chunk_ids_for_path(path)
+                    stale.update(old_chunk_ids - new_chunk_ids)
+                return stale
+
+            stale_chunk_ids = await asyncio.to_thread(_collect_stale)
 
             await self.rag.ingest(changed_docs)
-            for path, file_docs in changed_by_path.items():
-                self.store.mark_file_chunks(path, file_docs)
+
+            def _mark_all() -> None:
+                for path, file_docs in changed_by_path.items():
+                    self.store.mark_file_chunks(path, file_docs)
+
+            await asyncio.to_thread(_mark_all)
             if stale_chunk_ids:
                 self.rag.delete_by_metadata("chunk_id", stale_chunk_ids)
             self._save_vector_store()
@@ -407,7 +470,8 @@ class KnowledgeMesh:
             ingested_chunks=len(changed_docs),
             duration_seconds=time.perf_counter() - started,
         )
-        self.store.update_status(
+        await asyncio.to_thread(
+            self.store.update_status,
             state="ready",
             last_indexed_at=datetime.now(UTC).isoformat(),
             last_summary=asdict(summary),
@@ -433,9 +497,21 @@ class KnowledgeMesh:
         if not query.strip():
             raise ValueError("query must not be empty")
 
-        limit = top_k or self.config.retrieval_top_k
+        # ``top_k is not None`` (rather than ``top_k or ...``) so an explicit
+        # ``top_k=0`` requests zero hits instead of silently falling back to the
+        # configured default.
+        limit = top_k if top_k is not None else self.config.retrieval_top_k
         wm_result = await self.rag.query(query, top_k=max(limit * 4, limit), strategy=strategy)
-        active = self.store.active_chunk_ids()
+        # Only check the handful of candidate chunk IDs the vector query
+        # surfaced against the active set, instead of materialising every active
+        # chunk ID in the mesh. The SQLite read is blocking, so run it in a
+        # worker thread to keep the event loop free.
+        candidate_ids = [
+            str(cid)
+            for item in wm_result.embeddings
+            if (cid := (item.get("metadata") or {}).get("chunk_id")) is not None
+        ]
+        active = await asyncio.to_thread(self.store.filter_active_chunk_ids, candidate_ids)
         hits = _rerank_hits(query, _hits_from_embeddings(wm_result.embeddings, active, limit * 4))[
             :limit
         ]
