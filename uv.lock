@@ -10722,6 +10722,7 @@ name = "synapsekit"
 version = "1.9.1"
 source = { editable = "." }
 dependencies = [
+    { name = "cryptography" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pillow" },
@@ -11223,6 +11224,7 @@ requires-dist = [
     { name = "cohere", marker = "extra == 'cohere'", specifier = ">=5.0" },
     { name = "croniter", marker = "extra == 'all'", specifier = ">=2.0" },
     { name = "croniter", marker = "extra == 'cron'", specifier = ">=2.0" },
+    { name = "cryptography", specifier = ">=42" },
     { name = "deepgram-sdk", marker = "extra == 'voice-deepgram'", specifier = ">=3.0" },
     { name = "discord-py", marker = "extra == 'all'", specifier = ">=2.0" },
     { name = "discord-py", marker = "extra == 'discord'", specifier = ">=2.0" },

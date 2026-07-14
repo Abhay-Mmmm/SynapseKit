@@ -151,6 +151,25 @@ from .agents import (
     requires_human_confirmation,
     tool,
 )
+from .audit import (
+    AuditMetrics,
+    AuditRecord,
+    AuditSink,
+    AuditTracer,
+    AuditVerificationError,
+    EventKind,
+    FileAuditSink,
+    MerkleHasher,
+    ReplayEngine,
+    Signature,
+    SigningPolicy,
+    Verdict,
+    VerifiableAgent,
+    VerificationResult,
+    export_audit_bundle,
+)
+from .audit import PIIRedactor as AuditPIIRedactor
+from .audit import verify as verify_audit_bundle
 from .embeddings.backend import SynapsekitEmbeddings
 from .evaluation import (
     EmailAlertSink,
@@ -995,6 +1014,24 @@ __all__ = [
     "OPENAI_TRAINING_RATE_PER_M_TOKENS",
     "ANTHROPIC_TRAINING_RATE_PER_M_TOKENS",
     "ContinuousTrainer",
+    # Verifiable audit trail
+    "AuditTracer",
+    "AuditRecord",
+    "EventKind",
+    "Verdict",
+    "Signature",
+    "VerificationResult",
+    "AuditVerificationError",
+    "SigningPolicy",
+    "MerkleHasher",
+    "export_audit_bundle",
+    "verify_audit_bundle",
+    "ReplayEngine",
+    "AuditSink",
+    "FileAuditSink",
+    "AuditMetrics",
+    "VerifiableAgent",
+    "AuditPIIRedactor",
 ]
 
 # Lazy imports for optional backends
