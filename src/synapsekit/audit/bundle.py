@@ -35,7 +35,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from .merkle import MerkleHasher
+from .merkle import MerkleHasher, hash_leaf
 from .serializer import hash_value
 from .signer import SigningPolicy
 from .types import SCHEMA_VERSION, AuditRecord, Signature
@@ -64,7 +64,7 @@ class _Batch:
 
 
 def _sign_batch(records: list[AuditRecord], policy: SigningPolicy, *, start_index: int) -> _Batch:
-    leaves = [r.hash for r in records]
+    leaves = [hash_leaf(r.hash) for r in records]
     root = MerkleHasher.root(leaves)
     signature = policy.sign_batch(
         root, start_index=start_index, end_index=start_index + len(records) - 1

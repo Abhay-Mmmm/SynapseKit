@@ -50,10 +50,14 @@ def deep_unfreeze(value: Any) -> Any:
 #: - 1.2 renamed ``step_id`` to ``event_id``, added ``actor`` and a
 #:   two-level ``payload_hash``/``hash`` commitment (see
 #:   :mod:`synapsekit.audit.trace`), replaced the ad hoc ``kind`` set with
-#:   the stable :class:`EventKind` taxonomy, and reserved
+#:   the stable :class:`EventKind` taxonomy, reserved
 #:   ``redaction_policy_hash``/``redaction_status`` fields for future
-#:   compliance enforcement. Bundles from 1.1 and earlier are not
-#:   compatible with 1.2 verifiers.
+#:   compliance enforcement, and added the RFC 6962 0x00 leaf-hash domain
+#:   prefix (see :func:`synapsekit.audit.merkle.hash_leaf`) so leaf hashes
+#:   can never be replayed as internal node hashes. Bundles from 1.1 and
+#:   earlier are not compatible with 1.2 verifiers. 1.2 has not shipped
+#:   yet, so this leaf-hashing change lands within the same version
+#:   rather than bumping to 1.3.
 SCHEMA_VERSION = "1.2"
 
 #: prev_hash of the first record in a run — there is nothing before it.
@@ -149,7 +153,7 @@ class AuditRecord:
             run_id=data["run_id"],
             kind=data["kind"],
             actor=data.get("actor", "unknown"),
-            payload=data["payload"],
+            payload=deep_freeze(data["payload"]),
             payload_hash=data["payload_hash"],
             timestamp=ts,
             schema_version=data.get("schema_version", SCHEMA_VERSION),

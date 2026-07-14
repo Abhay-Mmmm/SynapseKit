@@ -5,6 +5,9 @@ payload_hash, reserved redaction fields, and the three-valued Verdict.
 from __future__ import annotations
 
 import json
+from types import MappingProxyType
+
+import pytest
 
 from synapsekit.audit import (
     AuditTracer,
@@ -14,7 +17,8 @@ from synapsekit.audit import (
     Verdict,
     export_audit_bundle,
 )
-from synapsekit.audit.verifier import verify
+from synapsekit.audit.types import AuditRecord
+from synapsekit.audit.verifier import load_bundle, verify
 
 from .conftest import dump_trace_lines, load_trace_lines, read_zip_entries, write_zip_entries
 
@@ -232,3 +236,60 @@ class TestVerdictCategorization:
             raised = True
             assert "DRIFT" in str(exc)
         assert raised
+
+
+class TestFromDictFreezesPayload:
+    """Regression test: AuditRecord.from_dict must deep_freeze the payload
+    it reconstructs, exactly like AuditTracer.record does — otherwise a
+    record reconstructed from a loaded bundle (verifier/replay path) has
+    a mutable payload dict, contradicting the class docstring's claim
+    that "mutation raises instead of silently succeeding". On the buggy
+    code, record.payload["x"] = ... succeeds silently; on the fixed code
+    it raises TypeError because the payload is a MappingProxyType.
+    """
+
+    def test_from_dict_payload_is_frozen(self):
+        rec = AuditRecord.from_dict(
+            {
+                "event_id": "e1",
+                "parent_id": None,
+                "run_id": "run-1",
+                "kind": "SYSTEM_EVENT",
+                "actor": "system",
+                "payload": {"x": 1, "nested": {"y": 2}},
+                "payload_hash": "deadbeef",
+                "timestamp": "2026-01-01T00:00:00+00:00",
+                "schema_version": "1.2",
+                "prev_hash": "0" * 64,
+                "hash": "1" * 64,
+            }
+        )
+        assert isinstance(rec.payload, MappingProxyType)
+        with pytest.raises(TypeError):
+            rec.payload["x"] = 999  # type: ignore[index]
+
+    def test_from_dict_nested_containers_are_also_frozen(self):
+        rec = AuditRecord.from_dict(
+            {
+                "event_id": "e1",
+                "parent_id": None,
+                "run_id": "run-1",
+                "kind": "SYSTEM_EVENT",
+                "actor": "system",
+                "payload": {"items": [1, 2, 3]},
+                "payload_hash": "deadbeef",
+                "timestamp": "2026-01-01T00:00:00+00:00",
+                "schema_version": "1.2",
+                "prev_hash": "0" * 64,
+                "hash": "1" * 64,
+            }
+        )
+        assert isinstance(rec.payload["items"], tuple)
+
+    def test_records_reloaded_from_a_bundle_have_frozen_payloads(self, tmp_path, sample_records):
+        path = export_audit_bundle(sample_records, SigningPolicy.ed25519(), tmp_path / "b.zip")
+        loaded = load_bundle(path)
+        for rec in loaded.records:
+            assert isinstance(rec.payload, MappingProxyType)
+            with pytest.raises(TypeError):
+                rec.payload["tampered"] = "value"  # type: ignore[index]

@@ -118,6 +118,49 @@ class TestNegativeVerification:
         result = verify(out)
         assert not result.ok
 
+
+class TestMerkleLeafDomainSeparation:
+    """Regression test: the exported bundle's hashes.merkle leaves must be
+    the RFC 6962 domain-separated leaf hashes (hash_leaf(record.hash)),
+    not the raw record.hash values. On the buggy code, leaves ==
+    [r.hash for r in records] -- indistinguishable from an internal node
+    input. A valid bundle must still verify end to end with the fix.
+    """
+
+    def test_recorded_leaves_are_not_raw_record_hashes(self, bundle_path, sample_records):
+        entries = read_zip_entries(bundle_path)
+        hashes_doc = json.loads(entries["hashes.merkle"])
+        recorded_leaves = hashes_doc["batches"][0]["leaves"]
+        raw_hashes = [r.hash for r in sample_records]
+        assert recorded_leaves != raw_hashes
+
+    def test_recorded_leaves_match_hash_leaf_of_record_hash(self, bundle_path, sample_records):
+        from synapsekit.audit.merkle import hash_leaf
+
+        entries = read_zip_entries(bundle_path)
+        hashes_doc = json.loads(entries["hashes.merkle"])
+        recorded_leaves = hashes_doc["batches"][0]["leaves"]
+        expected = [hash_leaf(r.hash) for r in sample_records]
+        assert recorded_leaves == expected
+
+    def test_valid_bundle_with_domain_separated_leaves_still_verifies(self, bundle_path):
+        result = verify(bundle_path)
+        assert result.ok
+        assert result.errors == []
+
+    def test_replaying_raw_record_hash_as_a_leaf_is_rejected(self, tmp_path, bundle_path):
+        # Simulate an attacker who tries to pass a raw record.hash off as
+        # a pre-domain-separated leaf -- must fail Merkle verification.
+        entries = read_zip_entries(bundle_path)
+        records = load_trace_lines(entries)
+        hashes_doc = json.loads(entries["hashes.merkle"])
+        hashes_doc["batches"][0]["leaves"][0] = records[0]["hash"]
+        entries["hashes.merkle"] = json.dumps(hashes_doc).encode("utf-8")
+        out = tmp_path / "raw_hash_as_leaf.zip"
+        write_zip_entries(out, entries)
+        result = verify(out)
+        assert not result.ok
+
     def test_schema_version_mismatch(self, tmp_path, bundle_path):
         entries = read_zip_entries(bundle_path)
         manifest = json.loads(entries["manifest.json"])

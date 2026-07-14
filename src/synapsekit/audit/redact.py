@@ -40,12 +40,57 @@ class RegexDetector:
         return [m.span() for m in self._pattern.finditer(text)]
 
 
+def _luhn_checksum_valid(digits: str) -> bool:
+    """True if ``digits`` (a numeric string, no separators) passes the Luhn check.
+
+    Real card numbers are Luhn-valid by construction; an arbitrary 13-16
+    digit numeric ID (order number, tracking number, phone extension...)
+    passes the Luhn check only ~1 in 10 times by chance, so this is an
+    effective filter against over-redacting ordinary numeric IDs that
+    merely happen to be the right length.
+    """
+    total = 0
+    parity = len(digits) % 2
+    for i, ch in enumerate(digits):
+        d = int(ch)
+        if i % 2 == parity:
+            d *= 2
+            if d > 9:
+                d -= 9
+        total += d
+    return total % 10 == 0
+
+
+class LuhnValidatedDetector:
+    """Detects credit-card-shaped digit runs that also pass a Luhn checksum.
+
+    The regex alone (13-16 digits, optional space/dash separators) would
+    match any numeric ID of that length — order numbers, tracking
+    numbers, database IDs. Real card numbers are Luhn-valid by
+    construction, so requiring the checksum to pass before redacting
+    keeps the detector from over-redacting ordinary numeric IDs while
+    still catching real card numbers regardless of separator style.
+    """
+
+    def __init__(self, label: str, pattern: str) -> None:
+        self.label = label
+        self._pattern = re.compile(pattern)
+
+    def find(self, text: str) -> list[tuple[int, int]]:
+        spans = []
+        for m in self._pattern.finditer(text):
+            digits = re.sub(r"[ -]", "", m.group())
+            if _luhn_checksum_valid(digits):
+                spans.append(m.span())
+        return spans
+
+
 EmailDetector = RegexDetector("EMAIL", r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
 PhoneDetector = RegexDetector(
     "PHONE", r"(?<!\d)(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}(?!\d)"
 )
 SSNDetector = RegexDetector("SSN", r"(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)")
-CreditCardDetector = RegexDetector("CREDIT_CARD", r"(?<!\d)(?:\d[ -]?){13,16}(?!\d)")
+CreditCardDetector = LuhnValidatedDetector("CREDIT_CARD", r"(?<!\d)(?:\d[ -]?){13,16}(?!\d)")
 IPAddressDetector = RegexDetector(
     "IP_ADDRESS",
     r"(?<!\d)(?:(?:25[0-5]|2[0-4]\d|[01]?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d?\d)(?!\d)",

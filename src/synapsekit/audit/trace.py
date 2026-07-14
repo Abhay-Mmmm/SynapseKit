@@ -183,7 +183,25 @@ class AuditTracer:
 
     @staticmethod
     def verify_chain(records: list[AuditRecord], *, expect_genesis: bool = True) -> None:
-        """Recompute every hash and linkage; raise :class:`ChainIntegrityError` on any break."""
+        """Recompute every hash and linkage; raise :class:`ChainIntegrityError` on any break.
+
+        ``records`` must all share one ``run_id`` — a chain link only
+        means something within a single run. If a caller passes an
+        unfiltered, multi-run record list, ``prev_hash``/``hash``
+        matches happening to line up *across* runs would otherwise be
+        accepted as a legitimate link, which is not a real guarantee
+        (nothing ties ``run_id`` to the hash chain itself). Callers that
+        need to verify a mixed batch should group by ``run_id`` first
+        and call this once per run — see :mod:`synapsekit.audit.replay`
+        for the pattern.
+        """
+        if records:
+            run_ids = {rec.run_id for rec in records}
+            if len(run_ids) > 1:
+                raise ChainIntegrityError(
+                    f"verify_chain received records from multiple runs ({sorted(run_ids)}) — "
+                    "group records by run_id and verify each run's chain independently"
+                )
         prev_hash = GENESIS_HASH
         for i, rec in enumerate(records):
             if i == 0 and expect_genesis and rec.prev_hash != GENESIS_HASH:

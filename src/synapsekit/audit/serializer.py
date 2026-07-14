@@ -11,9 +11,34 @@ from __future__ import annotations
 
 import hashlib
 import json
+import unicodedata
 from datetime import date, datetime, timezone
 from types import MappingProxyType
 from typing import Any
+
+
+def _normalize_strings(value: Any) -> Any:
+    """Recursively apply Unicode NFC normalization to every string leaf.
+
+    Two payloads that render identically to a human can be byte-for-byte
+    different Python strings — e.g. an "e" followed by a combining acute
+    accent (``"e\\u0301"``) versus the single precomposed "é"
+    (``"\\u00e9"``). Without normalizing to one canonical form first,
+    those would hash differently even though they commit to the same
+    logical value, which is exactly what :func:`canonical_json` promises
+    not to happen. This must run *before* ``json.dumps`` — dict keys are
+    strings too and need the same treatment so two logically-identical
+    keys don't collide or fail to collide inconsistently.
+    """
+    if isinstance(value, str):
+        return unicodedata.normalize("NFC", value)
+    if isinstance(value, dict | MappingProxyType):
+        return {_normalize_strings(k): _normalize_strings(v) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [_normalize_strings(v) for v in value]
+    if isinstance(value, set | frozenset):
+        return {_normalize_strings(v) for v in value}
+    return value
 
 
 def _default(obj: Any) -> Any:
@@ -43,10 +68,14 @@ def canonical_json(value: Any) -> bytes:
 
     Uses sorted keys, minimal separators, and ASCII-only output so the
     same logical value always produces byte-identical output regardless
-    of dict insertion order, locale, or platform.
+    of dict insertion order, locale, or platform. String values (and
+    dict keys) are also normalized to Unicode NFC first, so visually
+    identical text using different Unicode encodings (combining vs
+    precomposed characters) hashes to the same value.
     """
+    normalized = _normalize_strings(value)
     text = json.dumps(
-        value,
+        normalized,
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=True,

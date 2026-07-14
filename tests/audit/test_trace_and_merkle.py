@@ -78,6 +78,38 @@ class TestAuditTracer:
         with pytest.raises(ChainIntegrityError):
             AuditTracer.verify_chain([records[0], tampered_second])
 
+    def test_verify_chain_rejects_unfiltered_multi_run_record_list(self):
+        """Regression test: verify_chain had no run_id awareness — given
+        an unfiltered multi-run record list, a record from run B whose
+        prev_hash was forged to equal run A's last hash would previously
+        be accepted as a legitimate cross-run link (the old code only
+        checked prev_hash linkage, never run_id). It must now reject
+        mixed-run input outright rather than silently validating a bogus
+        cross-run chain.
+        """
+        run_a = AuditTracer(run_id="run-a")
+        run_a.record(EventKind.SYSTEM_EVENT, {"x": 1})
+        rec_a = run_a.records[0]
+
+        run_b = AuditTracer(run_id="run-b")
+        run_b.record(EventKind.SYSTEM_EVENT, {"x": 2})
+        rec_b = run_b.records[0]
+        # Forge run B's first record to chain from run A's last hash —
+        # on the old code this "links" cleanly and passes.
+        forged_rec_b = dataclasses.replace(rec_b, prev_hash=rec_a.hash)
+
+        with pytest.raises(ChainIntegrityError):
+            AuditTracer.verify_chain([rec_a, forged_rec_b], expect_genesis=True)
+
+    def test_verify_chain_accepts_single_run_records(self):
+        tracer = AuditTracer(run_id="run-only")
+        tracer.record(EventKind.SYSTEM_EVENT, {"x": 1})
+        tracer.record(EventKind.SYSTEM_EVENT, {"x": 2})
+        AuditTracer.verify_chain(list(tracer.records))  # should not raise
+
+    def test_verify_chain_accepts_empty_list(self):
+        AuditTracer.verify_chain([])  # should not raise
+
 
 class TestPayloadImmutability:
     """A record's payload must never be able to drift from the content its hash commits to."""
@@ -204,3 +236,55 @@ class TestMerkleDuplicateLeafAmbiguity:
         node_hash = MerkleHasher.root([a, b])
         undomained = hashlib.sha256(bytes.fromhex(a) + bytes.fromhex(b)).hexdigest()
         assert node_hash != undomained
+
+
+class TestLeafHashDomainSeparation:
+    """Regression test: before the fix, only internal Merkle nodes got
+    domain separation (0x01 prefix, RFC 6962-style) -- leaf hashes were
+    used raw, un-prefixed. Full RFC 6962 also domain-separates leaves
+    with a 0x00 prefix so a leaf hash can never be replayed as if it
+    were an internal node hash's input (or vice versa). This exercises
+    synapsekit.audit.merkle.hash_leaf directly.
+    """
+
+    def test_hash_leaf_is_not_the_raw_value(self):
+        from synapsekit.audit.merkle import hash_leaf
+
+        raw = "a" * 64
+        assert hash_leaf(raw) != raw
+
+    def test_hash_leaf_uses_the_0x00_domain_prefix(self):
+        from synapsekit.audit.merkle import hash_leaf
+
+        raw = "ab" * 32
+        expected = hashlib.sha256(b"\x00" + bytes.fromhex(raw)).hexdigest()
+        assert hash_leaf(raw) == expected
+
+    def test_hash_leaf_is_deterministic(self):
+        from synapsekit.audit.merkle import hash_leaf
+
+        raw = "c" * 64
+        assert hash_leaf(raw) == hash_leaf(raw)
+
+    def test_hash_leaf_output_is_domain_separated_from_hash_pair_output(self):
+        # A leaf hash (0x00 prefix) must never equal an internal node
+        # hash (0x01 prefix) computed over the same underlying bytes.
+        from synapsekit.audit.merkle import hash_leaf
+
+        a, b = "1" * 64, "2" * 64
+        node_hash = MerkleHasher.root([a, b])
+        leaf_hash_of_a = hash_leaf(a)
+        assert leaf_hash_of_a != node_hash
+
+    def test_single_record_leaf_hash_differs_from_raw_record_hash_used_as_root(self):
+        # A single-leaf tree's root is the leaf itself in MerkleHasher's
+        # generic API (see test_single_leaf_root_equals_leaf) -- but the
+        # actual leaf fed in must be the domain-separated hash_leaf(...)
+        # of the record hash, not the record hash directly, or leaves
+        # and internal nodes share an un-separated hash space.
+        from synapsekit.audit.merkle import hash_leaf
+
+        record_hash = "7" * 64
+        leaf = hash_leaf(record_hash)
+        assert MerkleHasher.root([leaf]) == leaf
+        assert MerkleHasher.root([leaf]) != record_hash

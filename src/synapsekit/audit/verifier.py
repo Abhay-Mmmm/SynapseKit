@@ -36,6 +36,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import unicodedata
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -54,8 +55,17 @@ REQUIRED_ENTRIES = ("manifest.json", "trace.jsonl", "hashes.merkle", "signatures
 #: bundle produced by this package would fail its own verifier.
 _NODE_DOMAIN = b"\x01"
 
+#: Must match synapsekit.audit.merkle's leaf domain separation (RFC 6962
+#: §2.1: 0x00 for leaves, 0x01 for internal nodes) exactly, or a bundle
+#: produced by this package would fail its own verifier.
+_LEAF_DOMAIN = b"\x00"
+
 #: (verdict, message) — the atomic unit of evidence a check contributes.
 Finding = tuple[Verdict, str]
+
+
+def _hash_leaf(value: str) -> str:
+    return hashlib.sha256(_LEAF_DOMAIN + bytes.fromhex(value)).hexdigest()
 
 
 def _hash_pair(left: str, right: str) -> str:
@@ -97,24 +107,55 @@ def _verify_signature(*, algorithm: str, public_key: bytes, data: bytes, signatu
     raise ValueError(f"unsupported signing algorithm: {algorithm!r}")
 
 
+def _normalize_strings(value: Any) -> Any:
+    """Recursively apply Unicode NFC normalization to every string leaf.
+
+    Must mirror :func:`synapsekit.audit.serializer._normalize_strings`
+    exactly, or a record hashed by the producing package (which
+    normalizes) would not reproduce here (which wouldn't), and every
+    bundle containing non-NFC text would spuriously fail verification.
+    Also unwraps ``MappingProxyType``/frozenset — ``AuditRecord.from_dict``
+    deep-freezes the payload it reconstructs (see types.py), so a record
+    loaded from a bundle carries frozen containers just like a live one.
+    """
+    from types import MappingProxyType
+
+    if isinstance(value, str):
+        return unicodedata.normalize("NFC", value)
+    if isinstance(value, dict | MappingProxyType):
+        return {_normalize_strings(k): _normalize_strings(v) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [_normalize_strings(v) for v in value]
+    if isinstance(value, set | frozenset):
+        return sorted((_normalize_strings(v) for v in value), key=repr)
+    return value
+
+
 def _canonical_json(value: Any) -> bytes:
     """Canonical serialization for values already made of plain JSON types
     (str/int/float/bool/None/dict/list) — used for record and manifest
     hashing. A record's ``timestamp`` is the one exception (a live
-    ``datetime``), handled via ``default=``.
+    ``datetime``), handled via ``default=``. Must match
+    :func:`synapsekit.audit.serializer.canonical_json` byte-for-byte for
+    any value both can serialize, or this standalone verifier would
+    disagree with the hashes SynapseKit itself produces.
     """
 
     def default(obj: Any) -> Any:
         from datetime import date, datetime, timezone
+        from types import MappingProxyType
 
         if isinstance(obj, datetime):
             return obj.astimezone(timezone.utc).isoformat()
         if isinstance(obj, date):
             return obj.isoformat()
+        if isinstance(obj, MappingProxyType):
+            return dict(obj)
         raise TypeError(f"Object of type {type(obj).__name__} is not canonically serializable")
 
+    normalized = _normalize_strings(value)
     text = json.dumps(
-        value,
+        normalized,
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=True,
@@ -339,7 +380,7 @@ def _verify_selective(
                 )
             )
             continue
-        if proof["leaf"] != rec.hash:
+        if proof["leaf"] != _hash_leaf(rec.hash):
             findings.append(
                 (
                     Verdict.DRIFT,
@@ -596,7 +637,7 @@ def verify(
     for batch in batches:
         start, end = batch["start_index"], batch["end_index"]
         slice_records = records[start : end + 1]
-        actual_leaves = [r.hash for r in slice_records]
+        actual_leaves = [_hash_leaf(r.hash) for r in slice_records]
         if actual_leaves != batch["leaves"]:
             findings.append(
                 (

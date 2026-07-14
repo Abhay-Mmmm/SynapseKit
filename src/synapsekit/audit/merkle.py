@@ -13,6 +13,14 @@ a tree with N leaves indistinguishable from a differently-shaped tree
 with N+1 leaves where the last is a copy of the previous one — the class
 of bug behind CVE-2012-2459. The recursive split here never produces
 that ambiguity.
+
+:class:`MerkleHasher` itself builds a tree over already-computed hex
+leaf hashes (it doesn't know or care what a "leaf" represents) — use
+:func:`hash_leaf` to turn a record's own ``hash`` field into the actual
+RFC 6962 leaf hash (with the 0x00 domain-separation prefix) before
+handing it to :meth:`MerkleHasher.root`/:meth:`MerkleHasher.proof`. That
+keeps a leaf hash from ever being replayable as an internal node hash
+(0x01-prefixed) or vice versa.
 """
 
 from __future__ import annotations
@@ -23,6 +31,22 @@ from dataclasses import dataclass
 #: Domain-separates internal node hashes from leaf hashes so a node hash
 #: can never be replayed as if it were itself a valid leaf.
 _NODE_DOMAIN = b"\x01"
+
+#: Domain-separates leaf hashes from internal node hashes (RFC 6962 §2.1
+#: uses 0x00 for leaves and 0x01 for internal nodes) so a raw record hash
+#: can never be replayed as if it were itself an internal node hash.
+_LEAF_DOMAIN = b"\x00"
+
+
+def hash_leaf(value: str) -> str:
+    """RFC 6962 leaf hash: ``SHA256(0x00 || value)`` over a hex-encoded input.
+
+    Call this on a record's ``hash`` field before passing it to
+    :meth:`MerkleHasher.root`/:meth:`MerkleHasher.proof` — those methods
+    treat their inputs as opaque, already-domain-separated leaf hashes
+    and do not apply this prefix themselves.
+    """
+    return hashlib.sha256(_LEAF_DOMAIN + bytes.fromhex(value)).hexdigest()
 
 
 def _hash_pair(left: str, right: str) -> str:

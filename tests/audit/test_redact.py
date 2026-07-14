@@ -64,6 +64,51 @@ class TestPIIRedactor:
         assert "x@y.com" not in out
 
 
+class TestCreditCardDetectorLuhnValidation:
+    """Regression test: the raw regex (13-16 digits, optional separators)
+    used to redact ANY numeric ID of that length — no Luhn check. That
+    over-redacts ordinary IDs (order numbers, tracking numbers) that
+    merely happen to be the right length. On the buggy code, a
+    Luhn-invalid 16-digit run was still redacted; on the fixed code it
+    is left alone.
+    """
+
+    def test_luhn_invalid_16_digit_id_is_not_redacted(self):
+        # A 16-digit run that is NOT Luhn-valid (fails the checksum) —
+        # e.g. a database/order ID that merely looks like a card number.
+        redactor = PIIRedactor()
+        non_card_id = "1234567890123456"  # fails Luhn
+        out = redactor.redact_text(f"order id {non_card_id} confirmed")
+        assert non_card_id in out
+        assert "[REDACTED:CREDIT_CARD]" not in out
+
+    def test_luhn_valid_card_number_is_still_redacted(self):
+        redactor = PIIRedactor()
+        # Standard Visa test number — Luhn-valid.
+        card = "4111111111111111"
+        out = redactor.redact_text(f"card {card} on file")
+        assert card not in out
+        assert "[REDACTED:CREDIT_CARD]" in out
+
+    def test_luhn_valid_card_with_dashes_is_redacted(self):
+        redactor = PIIRedactor()
+        card_with_dashes = "4111-1111-1111-1111"
+        out = redactor.redact_text(f"card {card_with_dashes} on file")
+        assert "1111-1111-1111-1111" not in out
+        assert "[REDACTED:CREDIT_CARD]" in out
+
+    def test_luhn_invalid_13_digit_run_is_not_redacted(self):
+        # Isolate the CreditCardDetector so PhoneDetector can't also
+        # match a 10-digit substring of this run and mask the assertion.
+        from synapsekit.audit.redact import CreditCardDetector
+
+        redactor = PIIRedactor(detectors=[CreditCardDetector])
+        non_card = "1234567890123"  # 13 digits, fails Luhn
+        out = redactor.redact_text(f"tracking {non_card} shipped")
+        assert non_card in out
+        assert "[REDACTED:CREDIT_CARD]" not in out
+
+
 class TestRedactionBeforeHashing:
     """Redaction must run BEFORE hashing — this is a documented, deliberate tradeoff."""
 
