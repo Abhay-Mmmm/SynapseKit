@@ -197,6 +197,7 @@ class Reputation:
             snapshot.mean_quality = quality
             snapshot.mean_reward = reward
         else:
+            assert snapshot.avg_cost is not None  # set on first attempt
             snapshot.avg_cost = self._ema(snapshot.avg_cost, cost, learning_rate)
             snapshot.mean_quality = self._ema(snapshot.mean_quality, quality, learning_rate)
             snapshot.mean_reward = self._ema(snapshot.mean_reward, reward, learning_rate)
