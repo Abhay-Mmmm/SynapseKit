@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import asyncio
-import platform
 import shlex
 from typing import Any
 
 from ..base import BaseTool, ToolResult
+
+# Characters that let a single command string spawn or chain other commands.
+# If any appear while an allow-list is enforced, the command is rejected rather
+# than executed, closing the ``echo hi & curl evil`` allow-list bypass.
+_SHELL_METACHARACTERS = ("&", "|", ";", "`", "$(", "${", ">", "<", "\n", "\r", "(", ")")
 
 
 class ShellTool(BaseTool):
@@ -50,26 +54,35 @@ class ShellTool(BaseTool):
         if not argv:
             return ToolResult(output="", error="No command provided.")
 
-        if self.allowed_commands is not None and argv[0] not in self.allowed_commands:
-            return ToolResult(
-                output="",
-                error=f"Command {argv[0]!r} is not in the allowed list.",
-            )
+        if self.allowed_commands is not None:
+            if argv[0] not in self.allowed_commands:
+                return ToolResult(
+                    output="",
+                    error=f"Command {argv[0]!r} is not in the allowed list.",
+                )
+            # When an allow-list is enforced, reject shell metacharacters that
+            # could chain a second (unlisted) command. The allow-list only vets
+            # argv[0]; without this a string like "echo hi & curl evil" would
+            # slip past on any code path that reaches a shell.
+            metachar = next((m for m in _SHELL_METACHARACTERS if m in target), None)
+            if metachar is not None:
+                return ToolResult(
+                    output="",
+                    error=(
+                        f"Command contains disallowed shell metacharacter "
+                        f"{metachar!r} while an allow-list is enforced."
+                    ),
+                )
 
         try:
-            # On Windows, use shell=True to support builtins like echo, dir, etc.
-            if platform.system() == "Windows":
-                proc = await asyncio.create_subprocess_shell(
-                    target,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-            else:
-                proc = await asyncio.create_subprocess_exec(
-                    *argv,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
+            # Always exec the parsed argv (never shell=True). This runs the
+            # command directly without a shell interpreter, so metacharacters in
+            # the raw string cannot spawn additional commands on any platform.
+            proc = await asyncio.create_subprocess_exec(
+                *argv,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=self.timeout)
             output = stdout.decode() if stdout else ""
             err = stderr.decode() if stderr else ""

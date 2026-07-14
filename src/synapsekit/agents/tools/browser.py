@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import ipaddress
+import socket
 from typing import Any
 from urllib.parse import urlparse
 
@@ -50,6 +52,11 @@ class BrowserTool(BaseTool):
         Use an isolated browser context.
     persistent_session : bool
         Reuse the browser instance across ``run()`` calls.
+    allow_private_ips : bool
+        If ``False`` (the default), navigation to hosts that resolve to
+        private, loopback, link-local, or otherwise-reserved IP ranges is
+        blocked to prevent SSRF (e.g. cloud metadata at ``169.254.169.254``).
+        This guard applies regardless of ``allowed_domains``.
     """
 
     name = "browser"
@@ -122,8 +129,10 @@ class BrowserTool(BaseTool):
         allow_javascript: bool = True,
         incognito: bool = True,
         persistent_session: bool = False,
+        allow_private_ips: bool = False,
     ) -> None:
         self.headless = headless
+        self.allow_private_ips = allow_private_ips
         self.allowed_domains = allowed_domains
         self.blocked_domains = blocked_domains or []
         self.screenshot_on_action = screenshot_on_action
@@ -207,6 +216,62 @@ class BrowserTool(BaseTool):
         # Blocked-domains blacklist
         if any(host == d.lower() or host.endswith("." + d.lower()) for d in self.blocked_domains):
             raise ValueError(f"Domain {host!r} is blocked.")
+
+        # SSRF guard — reject hosts that are or resolve to private/loopback/
+        # link-local/reserved IP ranges. Applied *after* the domain policy so a
+        # policy violation is reported first, and applied regardless of the
+        # allow-list. Re-run on every redirect via the post-navigation check in
+        # ``_navigate``.
+        self._reject_private_host(host)
+
+    @staticmethod
+    def _is_forbidden_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+        """Return ``True`` for private/loopback/link-local/reserved addresses."""
+        if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        return (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        )
+
+    def _reject_private_host(self, host: str) -> None:
+        """Raise ``ValueError`` if *host* is or resolves to a forbidden IP."""
+        if self.allow_private_ips:
+            return
+
+        # Strip brackets from IPv6 literals like "[::1]".
+        candidate = host[1:-1] if host.startswith("[") and host.endswith("]") else host
+
+        # Literal IP address — check directly, no DNS.
+        try:
+            literal = ipaddress.ip_address(candidate)
+        except ValueError:
+            literal = None
+        if literal is not None:
+            if self._is_forbidden_ip(literal):
+                raise ValueError(f"Host {host!r} resolves to a blocked (private) IP address.")
+            return
+
+        # Hostname — resolve every address it maps to and reject if ANY is forbidden.
+        # A host that does not resolve cannot be an SSRF target, so a resolution
+        # failure is not treated as a violation here; navigation will fail later
+        # in the browser if the host is genuinely unreachable.
+        try:
+            infos = socket.getaddrinfo(candidate, None)
+        except socket.gaierror:
+            return
+        for info in infos:
+            addr = info[4][0]
+            try:
+                resolved = ipaddress.ip_address(addr)
+            except ValueError:
+                continue
+            if self._is_forbidden_ip(resolved):
+                raise ValueError(f"Host {host!r} resolves to a blocked (private) IP address.")
 
     # ------------------------------------------------------------------
     # Screenshot helper

@@ -35,7 +35,10 @@ Rules:
 """
 
 _ACTION_RE = re.compile(r"Action:\s*(.+)", re.IGNORECASE)
-_ACTION_INPUT_RE = re.compile(r"Action Input:\s*(.+)", re.IGNORECASE | re.DOTALL)
+_ACTION_INPUT_RE = re.compile(
+    r"Action Input:\s*(.+?)(?=\n(?:Thought|Action|Observation|Final Answer):|$)",
+    re.IGNORECASE | re.DOTALL,
+)
 _THOUGHT_RE = re.compile(
     r"Thought:\s*(.+?)(?=\n(?:Action|Final Answer)|$)", re.IGNORECASE | re.DOTALL
 )

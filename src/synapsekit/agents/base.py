@@ -28,8 +28,25 @@ class BaseTool(ABC):
     description: str
 
     # JSON Schema for the tool's input parameters.
-    # Subclasses must define this as a class attribute.
-    parameters: dict = field(default_factory=dict)
+    #
+    # Exposed as a property (not a bare class attribute) so the *default* is a
+    # fresh, JSON-serialisable dict — never a ``dataclasses.Field`` object (the
+    # #799 crash) and never one mutable dict shared across instances.
+    #
+    # Subclasses may still override in either idiomatic way:
+    #   * a class-level ``parameters = {...}`` literal (shadows this property), or
+    #   * assignment in ``__init__`` (``self.parameters = ...``) — the setter
+    #     below stores it as a per-instance override.
+    @property
+    def parameters(self) -> dict[str, Any]:
+        override = self.__dict__.get("_parameters_override")
+        if override is not None:
+            return override
+        return {"type": "object", "properties": {}}
+
+    @parameters.setter
+    def parameters(self, value: dict[str, Any]) -> None:
+        self.__dict__["_parameters_override"] = value
 
     @abstractmethod
     async def run(self, **kwargs: Any) -> ToolResult:
@@ -43,7 +60,7 @@ class BaseTool(ABC):
             "function": {
                 "name": self.name,
                 "description": self.description,
-                "parameters": getattr(self, "parameters", {"type": "object", "properties": {}}),
+                "parameters": self.parameters,
             },
         }
 
@@ -52,7 +69,7 @@ class BaseTool(ABC):
         return {
             "name": self.name,
             "description": self.description,
-            "input_schema": getattr(self, "parameters", {"type": "object", "properties": {}}),
+            "input_schema": self.parameters,
         }
 
     def __repr__(self) -> str:
