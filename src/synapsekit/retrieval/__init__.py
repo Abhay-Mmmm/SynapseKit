@@ -18,6 +18,17 @@ from .late_chunking import LateChunkingRetriever
 from .mongodb_atlas import MongoDBAtlasVectorStore
 from .multi_step import MultiStepRetriever
 from .parent_document import ParentDocumentRetriever
+from .property_graph import (
+    ExtractedEntity,
+    ExtractedRelationship,
+    GraphVectorStore,
+    KnowledgeGraphExtraction,
+    KnowledgeGraphExtractor,
+    Neo4jPropertyGraphBackend,
+    NetworkXPropertyGraphBackend,
+    PropertyGraphEdge,
+    PropertyGraphNode,
+)
 from .query_decomposition import QueryDecompositionRetriever
 from .raptor import RAPTORRetriever
 from .retriever import Retriever
@@ -69,17 +80,24 @@ __all__ = [
     "FLARERetriever",
     "FullContextRetriever",
     "GraphRAGRetriever",
+    "GraphVectorStore",
     "HybridSearchRetriever",
     "HyDERetriever",
     "InMemoryVectorStore",
     "KnowledgeGraph",
+    "KnowledgeGraphExtraction",
+    "KnowledgeGraphExtractor",
     "LanceDBVectorStore",
     "MarqoVectorStore",
     "MilvusVectorStore",
     "MongoDBAtlasVectorStore",
     "MultiStepRetriever",
+    "Neo4jPropertyGraphBackend",
+    "NetworkXPropertyGraphBackend",
     "OpenSearchVectorStore",
     "ParentDocumentRetriever",
+    "PropertyGraphEdge",
+    "PropertyGraphNode",
     "PGVectorStore",
     "PineconeVectorStore",
     "QdrantVectorStore",
@@ -112,6 +130,8 @@ __all__ = [
     "WorldModelNode",
     "WorldModelRAG",
     "WorldModelQueryResult",
+    "ExtractedEntity",
+    "ExtractedRelationship",
     "ZillizVectorStore",
 ]
 
