@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import inspect
 from collections.abc import Iterable
 from enum import Enum
@@ -156,6 +158,51 @@ class AgentFederation:
     route = select_agent
     select = select_agent
 
+    def _ranked_candidates(
+        self,
+        *,
+        strategy: RoutingStrategy,
+        tools: Iterable[str] | str | None,
+        tags: Iterable[str] | str | None,
+        min_capacity: int | None,
+        healthy_only: bool,
+    ) -> list[AgentMetadata]:
+        """Return all matching agents ordered best-first for *strategy*.
+
+        Used by ``run`` to fail over through the ranked list when a chosen
+        agent crashes or times out.
+        """
+        candidates = self.discover(
+            tools=tools,
+            tags=tags,
+            min_capacity=min_capacity,
+            healthy_only=healthy_only,
+        )
+        if not candidates:
+            raise LookupError("No agents match the discovery filters.")
+
+        if strategy == RoutingStrategy.CAPACITY_AWARE:
+            return sorted(candidates, key=lambda a: a.capacity, reverse=True)
+        if strategy == RoutingStrategy.COST_AWARE:
+            return sorted(candidates, key=lambda a: a.cost_multiplier)
+        # ROUND_ROBIN: rotate by the current offset so the primary pick matches
+        # select_agent, then fall through the remaining agents in order.
+        ids = tuple(agent.id for agent in candidates)
+        key = ("round_robin", ids)
+        offset = self._round_robin_offsets.get(key, 0)
+        self._round_robin_offsets[key] = offset + 1
+        n = len(candidates)
+        return [candidates[(offset + i) % n] for i in range(n)]
+
+    def _record_failure(self, agent: AgentMetadata) -> None:
+        """Best-effort mark of an agent as failed via the registry/reputation API."""
+        for method_name in ("mark_unhealthy", "report_failure", "record_failure"):
+            method = getattr(self.registry, method_name, None)
+            if callable(method):
+                with contextlib.suppress(Exception):
+                    method(agent.id)
+                return
+
     async def run(
         self,
         prompt: str,
@@ -166,6 +213,7 @@ class AgentFederation:
         tags: Iterable[str] | str | None = None,
         min_capacity: int | None = None,
         healthy_only: bool = True,
+        timeout: float | None = None,
         **kwargs: Any,
     ) -> Any:
         selected_strategy = self._normalise_strategy(strategy or self.default_strategy)
@@ -191,25 +239,49 @@ class AgentFederation:
                 **kwargs,
             )
 
-        if agent_id is None:
-            agent = self.select_agent(
-                strategy=selected_strategy,
-                tools=tools,
-                tags=tags,
-                min_capacity=min_capacity,
-                healthy_only=healthy_only,
-            )
-        else:
+        if agent_id is not None:
             agent_record = self.registry.get(agent_id)
             if agent_record is None:
                 raise KeyError(f"Unknown agent id: {agent_id}")
-            agent = agent_record
-            if healthy_only and not self.registry.is_healthy(agent.id):
-                raise LookupError(f"Agent is not healthy: {agent.id}")
+            if healthy_only and not self.registry.is_healthy(agent_record.id):
+                raise LookupError(f"Agent is not healthy: {agent_record.id}")
+            return await self._invoke_one(agent_record, prompt, timeout, **kwargs)
 
+        # No explicit agent: build the ranked candidate list and fail over
+        # through it. A crash or timeout on one agent re-routes to the next
+        # healthy candidate instead of failing the whole task.
+        candidates = self._ranked_candidates(
+            strategy=selected_strategy,
+            tools=tools,
+            tags=tags,
+            min_capacity=min_capacity,
+            healthy_only=healthy_only,
+        )
+        last_exc: BaseException | None = None
+        for agent in candidates:
+            try:
+                return await self._invoke_one(agent, prompt, timeout, **kwargs)
+            except Exception as exc:  # includes asyncio.TimeoutError
+                last_exc = exc
+                self._record_failure(agent)
+                continue
+        raise RuntimeError(
+            f"All {len(candidates)} candidate agents failed for the task."
+        ) from last_exc
+
+    async def _invoke_one(
+        self,
+        agent: AgentMetadata,
+        prompt: str,
+        timeout: float | None,
+        **kwargs: Any,
+    ) -> Any:
+        """Invoke a single agent's client, awaiting with an optional timeout."""
         client = self.get_client(agent)
         result = client.run(prompt, **kwargs)
         if inspect.isawaitable(result):
+            if timeout is not None:
+                return await asyncio.wait_for(result, timeout=timeout)
             return await result
         return result
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from ..base import BaseTool, ToolResult
@@ -62,6 +63,35 @@ class SQLQueryTool(BaseTool):
                 "sqlalchemy required for non-SQLite databases: pip install sqlalchemy"
             ) from None
 
+    def _execute_blocking(
+        self, sql: str, params: dict[str, Any]
+    ) -> tuple[list[str], list[Any]]:
+        """Run the query synchronously; intended to be dispatched via to_thread."""
+        if self._is_sqlite:
+            import sqlite3
+
+            sqlite_conn = sqlite3.connect(self._connection_string)
+            try:
+                cursor = sqlite_conn.cursor()
+                # Security: Use parameterized query execution
+                cursor.execute(sql, params)
+                cols = [d[0] for d in cursor.description] if cursor.description else []
+                rows = cursor.fetchmany(self._max_rows)
+            finally:
+                sqlite_conn.close()
+            return cols, rows
+
+        from sqlalchemy import create_engine
+        from sqlalchemy import text as sa_text
+
+        engine = create_engine(self._connection_string)
+        with engine.connect() as sa_conn:
+            # Security: Use SA text parameters mapping
+            result = sa_conn.execute(sa_text(sql), params)
+            cols = list(result.keys())
+            rows = list(result.fetchmany(self._max_rows))
+        return cols, rows
+
     async def run(
         self, query: str = "", params: dict[str, Any] | None = None, **kwargs: Any
     ) -> ToolResult:
@@ -81,28 +111,9 @@ class SQLQueryTool(BaseTool):
             )
 
         try:
-            if self._is_sqlite:
-                import sqlite3
-
-                sqlite_conn = sqlite3.connect(self._connection_string)
-                try:
-                    cursor = sqlite_conn.cursor()
-                    # Security: Use parameterized query execution
-                    cursor.execute(sql, params)
-                    cols = [d[0] for d in cursor.description] if cursor.description else []
-                    rows = cursor.fetchmany(self._max_rows)
-                finally:
-                    sqlite_conn.close()
-            else:
-                from sqlalchemy import create_engine
-                from sqlalchemy import text as sa_text
-
-                engine = create_engine(self._connection_string)
-                with engine.connect() as sa_conn:
-                    # Security: Use SA text parameters mapping
-                    result = sa_conn.execute(sa_text(sql), params)
-                    cols = list(result.keys())
-                    rows = list(result.fetchmany(self._max_rows))
+            # sqlite3 / SQLAlchemy calls are blocking; run them off the event
+            # loop so they cannot stall other coroutines.
+            cols, rows = await asyncio.to_thread(self._execute_blocking, sql, params)
 
             if not rows:
                 return ToolResult(output="Query returned no rows.")
