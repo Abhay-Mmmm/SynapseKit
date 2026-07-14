@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import sys
-
 import numpy as np
 import pytest
 
@@ -19,22 +17,18 @@ class FakeONNXSession:
 
 
 def test_missing_onnxruntime_raises() -> None:
-    # If onnxruntime is already installed we cannot simulate its absence without
-    # patching — skip so the test only runs in environments where it is absent.
-    if "onnxruntime" in sys.modules and sys.modules["onnxruntime"] is not None:
+    # Skip when onnxruntime is installed — the test only exercises the
+    # ImportError path that fires when the package is absent.
+    import importlib.util
+
+    if importlib.util.find_spec("onnxruntime") is not None:
         pytest.skip("onnxruntime is installed; this test only runs when absent")
 
     embeddings = ONNXEmbeddings("model.onnx")
-    # Temporarily remove onnxruntime from sys.modules to simulate absence
-    original = sys.modules.pop("onnxruntime", None)
-    try:
-        with pytest.raises(ImportError) as exc_info:
-            embeddings._get_session()
-        assert "onnxruntime" in str(exc_info.value)
-        assert "pip install" in str(exc_info.value)
-    finally:
-        if original is not None:
-            sys.modules["onnxruntime"] = original
+    with pytest.raises(ImportError) as exc_info:
+        embeddings._get_session()
+    assert "onnxruntime" in str(exc_info.value)
+    assert "pip install" in str(exc_info.value)
 
 
 @pytest.mark.asyncio
