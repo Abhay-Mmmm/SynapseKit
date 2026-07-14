@@ -106,23 +106,31 @@ def _run_verify(args: Any) -> None:
         print(f"Records: {result.record_count}  Batches: {result.batch_count}")
         print(f"Verdict: {result.verdict.value}")
         if result.ok:
+            # A MATCH is only reachable with a pinned trust anchor now —
+            # an unpinned but self-consistent bundle is capped at
+            # UNVERIFIABLE (handled below), never reported as MATCH.
             print("Chain:      OK")
             print("Merkle:     OK")
             print("Signatures: OK")
             print("Manifest:   OK")
-            if result.trust_anchor == "pinned":
-                print("Trust:      PINNED — signatures verified against caller-supplied keys")
-                print("\nMATCH — bundle is intact and was signed by a key you independently trust.")
-            else:
-                print(
-                    "Trust:      NONE — signatures verified only against keys embedded in the bundle"
-                )
-                print(
-                    "\nMATCH (self-consistent only) — bundle wasn't edited after export, but "
-                    "its signer's identity is UNAUTHENTICATED. Pass --trusted-key to establish that."
-                )
+            print("Trust:      PINNED — signatures verified against caller-supplied keys")
+            print("\nMATCH — bundle is intact and was signed by a key you independently trust.")
         elif result.verdict.value == "DRIFT":
             print("\nDRIFT — evidence contradicts recorded claims (tampering detected):")
+            for err in result.errors:
+                print(f"  - {err}")
+        elif result.trust_anchor == "none":
+            # Self-consistent, but no key was pinned: the verifier caps
+            # this at UNVERIFIABLE rather than MATCH, because signatures
+            # were only checked against keys embedded in the bundle itself.
+            print(
+                "Trust:      NONE — signatures verified only against keys embedded in the bundle"
+            )
+            print(
+                "\nUNVERIFIABLE — the bundle is internally self-consistent (it wasn't edited "
+                "after export), but its signer's identity is UNAUTHENTICATED. Pass --trusted-key "
+                "with an independently-obtained public key to establish authenticity and get a MATCH:"
+            )
             for err in result.errors:
                 print(f"  - {err}")
         else:

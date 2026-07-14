@@ -148,7 +148,19 @@ async def test_federated_timeout_returns_partial():
 
 @pytest.mark.asyncio
 async def test_federated_remote_source_standard_protocol(monkeypatch):
+    import socket
+
     httpx = pytest.importorskip("httpx")
+
+    # The SSRF guard (fail-closed) resolves the host before the request; stub
+    # DNS so the placeholder host validates as a public address.
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda *a, **k: [
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("93.184.216.34", 0))
+        ],
+    )
 
     captured: dict[str, object] = {}
 

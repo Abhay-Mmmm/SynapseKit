@@ -51,7 +51,7 @@ class CloudflareLLM(BaseLLM):
                     "Authorization": f"Bearer {self.config.api_key}",
                     "Content-Type": "application/json",
                 },
-                timeout=120.0,
+                timeout=self.config.timeout if self.config.timeout is not None else 120.0,
             )
         return self._client
 

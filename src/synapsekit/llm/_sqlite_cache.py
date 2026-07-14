@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 from contextlib import suppress
 from typing import Any
 
@@ -33,18 +34,29 @@ class SQLiteLLMCache:
 
     make_key = staticmethod(AsyncLRUCache.make_key)
 
-    def __init__(self, db_path: str = "synapsekit_llm_cache.db") -> None:
+    def __init__(self, db_path: str = "synapsekit_llm_cache.db", busy_timeout_ms: int = 5000) -> None:
         self._db_path = db_path
-        self._conn = sqlite3.connect(db_path)
-        self._conn.execute(
-            "CREATE TABLE IF NOT EXISTS llm_cache (key TEXT PRIMARY KEY, value TEXT)"
-        )
-        self._conn.commit()
+        # A single shared connection is reused from async handlers that may run
+        # on different threads (executor pool), so allow cross-thread use and
+        # guard every access with a lock. WAL + a busy timeout let concurrent
+        # writers wait instead of failing with "database is locked".
+        self._conn = sqlite3.connect(db_path, check_same_thread=False)
+        self._lock = threading.Lock()
+        with self._lock:
+            self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.execute(f"PRAGMA busy_timeout={int(busy_timeout_ms)}")
+            self._conn.execute(
+                "CREATE TABLE IF NOT EXISTS llm_cache (key TEXT PRIMARY KEY, value TEXT)"
+            )
+            self._conn.commit()
         self.hits: int = 0
         self.misses: int = 0
 
     def get(self, key: str) -> Any | None:
-        row = self._conn.execute("SELECT value FROM llm_cache WHERE key = ?", (key,)).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT value FROM llm_cache WHERE key = ?", (key,)
+            ).fetchone()
         if row is not None:
             self.hits += 1
             return row[0]
@@ -52,18 +64,21 @@ class SQLiteLLMCache:
         return None
 
     def put(self, key: str, value: Any) -> None:
-        self._conn.execute(
-            "INSERT OR REPLACE INTO llm_cache (key, value) VALUES (?, ?)",
-            (key, str(value)),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO llm_cache (key, value) VALUES (?, ?)",
+                (key, str(value)),
+            )
+            self._conn.commit()
 
     def clear(self) -> None:
-        self._conn.execute("DELETE FROM llm_cache")
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute("DELETE FROM llm_cache")
+            self._conn.commit()
 
     def __len__(self) -> int:
-        row = self._conn.execute("SELECT COUNT(*) FROM llm_cache").fetchone()
+        with self._lock:
+            row = self._conn.execute("SELECT COUNT(*) FROM llm_cache").fetchone()
         return row[0] if row else 0
 
     def close(self) -> None:

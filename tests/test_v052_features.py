@@ -186,8 +186,8 @@ class TestCallWithToolsRetry:
         assert llm._fail_count == 2
 
     @pytest.mark.asyncio
-    async def test_call_with_tools_no_retry_by_default(self):
-        llm = DummyLLMWithTools(fail_n=1)
+    async def test_call_with_tools_no_retry_when_disabled(self):
+        llm = DummyLLMWithTools(fail_n=1, max_retries=0)
         with pytest.raises(ConnectionError):
             await llm.call_with_tools(
                 messages=[{"role": "user", "content": "test"}],

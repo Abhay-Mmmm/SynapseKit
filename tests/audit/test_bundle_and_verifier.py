@@ -9,27 +9,45 @@ from pathlib import Path
 from synapsekit.audit import SigningPolicy, export_audit_bundle
 from synapsekit.audit.verifier import verify
 
-from .conftest import dump_trace_lines, load_trace_lines, read_zip_entries, write_zip_entries
+from .conftest import (
+    dump_trace_lines,
+    load_trace_lines,
+    manifest_keys_as_trusted,
+    read_zip_entries,
+    write_zip_entries,
+)
 
 
 class TestValidBundle:
     def test_valid_bundle_verifies_ok(self, bundle_path: Path):
-        result = verify(bundle_path)
+        # A MATCH requires a pinned key now; pin the bundle's own advertised
+        # keys since this test only asserts structural integrity.
+        result = verify(bundle_path, trusted_keys=manifest_keys_as_trusted(bundle_path))
         assert result.ok
         assert result.errors == []
         assert result.record_count == 4
 
+    def test_unpinned_valid_bundle_is_capped_at_unverifiable(self, bundle_path: Path):
+        # Security cap: with no pinned key, an otherwise-valid bundle is
+        # UNVERIFIABLE, not MATCH — self-consistency is not authenticity.
+        from synapsekit.audit.types import Verdict
+
+        result = verify(bundle_path)
+        assert result.verdict == Verdict.UNVERIFIABLE
+        assert not result.ok
+        assert result.trust_anchor == "none"
+
     def test_batch_count_matches_number_of_signed_batches(self, tmp_path, sample_records):
         policy = SigningPolicy.ed25519()
         path = export_audit_bundle(sample_records, policy, tmp_path / "b.zip", batch_size=2)
-        result = verify(path)
+        result = verify(path, trusted_keys=manifest_keys_as_trusted(path))
         assert result.ok
         assert result.batch_count == 2
 
     def test_empty_record_set_produces_a_verifiable_empty_bundle(self, tmp_path):
         policy = SigningPolicy.ed25519()
         path = export_audit_bundle([], policy, tmp_path / "empty.zip")
-        result = verify(path)
+        result = verify(path, trusted_keys=manifest_keys_as_trusted(path))
         assert result.ok
         assert result.record_count == 0
 
@@ -144,7 +162,7 @@ class TestMerkleLeafDomainSeparation:
         assert recorded_leaves == expected
 
     def test_valid_bundle_with_domain_separated_leaves_still_verifies(self, bundle_path):
-        result = verify(bundle_path)
+        result = verify(bundle_path, trusted_keys=manifest_keys_as_trusted(bundle_path))
         assert result.ok
         assert result.errors == []
 
@@ -220,7 +238,7 @@ class TestKeyRotation:
             [(batch_a, key_a), (batch_b, key_b)],
             tmp_path / "rotated.zip",
         )
-        result = verify(path)
+        result = verify(path, trusted_keys=manifest_keys_as_trusted(path))
         assert result.ok
         assert result.batch_count == 2
 
