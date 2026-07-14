@@ -1109,6 +1109,20 @@ class WorldModelRAG:
         """Sync wrapper for ``ingest``."""
         run_sync(self.ingest(docs))
 
+    def delete_by_metadata(self, key: str, values: set[str]) -> int:
+        """Delete vector-store entries whose ``metadata[key]`` is in ``values``.
+
+        Returns the number of deleted entries, or ``0`` if the underlying
+        vector store does not support deletion.
+        """
+        delete = getattr(self.vector_store, "delete_by_metadata", None)
+        if not callable(delete):
+            return 0
+        try:
+            return int(delete(key, values))
+        except NotImplementedError:
+            return 0
+
     async def query(
         self,
         query: str,

@@ -216,6 +216,38 @@ class SQLiteVecStore(VectorStore):
         self._ensure_meta_table()
         self._dim = self._read_dim()
 
+    def delete_by_metadata(self, key: str, values: set[str]) -> int:
+        """Delete all rows whose ``metadata[key]`` is in ``values``.
+
+        The metadata column stores a JSON blob per row, so matching rows are
+        found by scanning and re-checked in Python before deleting by rowid.
+        """
+        if not values or not self._table_exists():
+            return 0
+
+        rows = self._conn.execute(
+            f"SELECT rowid, metadata FROM {self._q(self._table_name)}"
+        ).fetchall()
+        to_delete: list[int] = []
+        for row in rows:
+            if isinstance(row, tuple):
+                rowid, metadata_raw = row
+            else:
+                rowid, metadata_raw = row["rowid"], row["metadata"]
+            meta = json.loads(metadata_raw) if metadata_raw else {}
+            if meta.get(key) in values:
+                to_delete.append(rowid)
+
+        if not to_delete:
+            return 0
+
+        with self._conn:
+            self._conn.executemany(
+                f"DELETE FROM {self._q(self._table_name)} WHERE rowid = ?",
+                [(rowid,) for rowid in to_delete],
+            )
+        return len(to_delete)
+
     def __len__(self) -> int:
         if not self._table_exists():
             return 0

@@ -267,6 +267,19 @@ class MeshIndexStore:
         rows = self._conn.execute("SELECT chunk_id FROM mesh_chunks WHERE active = 1").fetchall()
         return {str(row["chunk_id"]) for row in rows}
 
+    def active_chunk_ids_for_path(self, path: str) -> set[str]:
+        """Return currently-active chunk IDs indexed for ``path``.
+
+        Used before reindexing a changed file to find stale chunk IDs whose
+        vectors must be removed from the vector store once the new chunks
+        are ingested.
+        """
+
+        rows = self._conn.execute(
+            "SELECT chunk_id FROM mesh_chunks WHERE path = ? AND active = 1", (path,)
+        ).fetchall()
+        return {str(row["chunk_id"]) for row in rows}
+
     def active_documents(self) -> list[Document]:
         """Return active indexed chunks as documents."""
 
@@ -371,9 +384,18 @@ class KnowledgeMesh:
             changed_docs.extend(file_docs)
 
         if changed_docs:
+            changed_by_path = _group_by_path(changed_docs)
+            stale_chunk_ids: set[str] = set()
+            for path, file_docs in changed_by_path.items():
+                new_chunk_ids = {str(doc.metadata.get("chunk_id")) for doc in file_docs}
+                old_chunk_ids = self.store.active_chunk_ids_for_path(path)
+                stale_chunk_ids.update(old_chunk_ids - new_chunk_ids)
+
             await self.rag.ingest(changed_docs)
-            for path, file_docs in _group_by_path(changed_docs).items():
+            for path, file_docs in changed_by_path.items():
                 self.store.mark_file_chunks(path, file_docs)
+            if stale_chunk_ids:
+                self.rag.delete_by_metadata("chunk_id", stale_chunk_ids)
             self._save_vector_store()
 
         summary = MeshIndexSummary(
@@ -590,14 +612,14 @@ def _dedupe_docs(docs: list[Document]) -> list[Document]:
 
 def _hits_from_embeddings(
     embeddings: list[dict[str, Any]],
-    active_chunk_ids: set[str],
+    active_chunk_ids: set[str] | None,
     limit: int,
 ) -> list[MeshHit]:
     hits: list[MeshHit] = []
     for item in embeddings:
         metadata = dict(item.get("metadata") or {})
         chunk_id = metadata.get("chunk_id")
-        if active_chunk_ids and chunk_id not in active_chunk_ids:
+        if active_chunk_ids is not None and chunk_id not in active_chunk_ids:
             continue
         path = metadata.get("path") or metadata.get("source")
         if not path:

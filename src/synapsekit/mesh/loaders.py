@@ -157,7 +157,7 @@ class LocalMdLoader:
         return (
             Path(relative_path).match(normalized)
             or Path(name).match(normalized)
-            or re.fullmatch(normalized.replace("*", ".*"), relative_path) is not None
+            or _glob_regex(normalized).fullmatch(relative_path) is not None
         )
 
 
@@ -301,6 +301,57 @@ def stable_chunk_id(path: str, content_hash: str, chunk_index: int) -> str:
 
     digest = hashlib.sha256(f"{path}:{content_hash}:{chunk_index}".encode()).hexdigest()
     return f"mesh_{digest[:24]}"
+
+
+_GLOB_REGEX_CACHE: dict[str, re.Pattern[str]] = {}
+
+
+def _glob_regex(pattern: str) -> re.Pattern[str]:
+    """Compile a POSIX-style glob pattern to a regex with globstar semantics.
+
+    ``**`` matches zero or more path segments (including none), so
+    ``docs/**/*.md`` matches both ``docs/architecture.md`` and
+    ``docs/guides/architecture.md``. A bare ``*`` matches within a single
+    path segment only; ``?`` matches exactly one non-separator character.
+    Compiled patterns are cached since include lists are reused per file.
+    """
+
+    cached = _GLOB_REGEX_CACHE.get(pattern)
+    if cached is not None:
+        return cached
+
+    segments = pattern.split("/")
+    regex_parts: list[str] = []
+    for index, segment in enumerate(segments):
+        if segment == "**":
+            if index == 0:
+                # Leading "**/" — zero or more segments before the rest.
+                regex_parts.append(r"(?:.*/)?")
+            elif index == len(segments) - 1:
+                # Trailing "/**" — zero or more segments after the rest.
+                if regex_parts and regex_parts[-1] == "/":
+                    regex_parts.pop()
+                regex_parts.append(r"(?:/.*)?")
+            else:
+                regex_parts.append(r"(?:.*/)?")
+            continue
+        regex_parts.append(_segment_to_regex(segment))
+        if index != len(segments) - 1:
+            regex_parts.append("/")
+
+    return _GLOB_REGEX_CACHE.setdefault(pattern, re.compile("".join(regex_parts)))
+
+
+def _segment_to_regex(segment: str) -> str:
+    out: list[str] = []
+    for char in segment:
+        if char == "*":
+            out.append("[^/]*")
+        elif char == "?":
+            out.append("[^/]")
+        else:
+            out.append(re.escape(char))
+    return "".join(out)
 
 
 def _split_section(
