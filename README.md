@@ -25,7 +25,7 @@ Async-native RAG, Agents, and Graph workflows — no magic, no SaaS, no bloat.
 
 > *"LangChain for people who hate LangChain."*
 
-SynapseKit is the minimal, async-first Python framework for LLM applications. 33 providers · 50+ tools · 66 loaders · 22 vector stores. Every abstraction is plain Python you can read, debug, and extend. No hidden chains. No global state. No lock-in.
+SynapseKit is the minimal, async-first Python framework for LLM applications. 35 providers · 50 tools · 66 loaders · 22 vector stores. Every abstraction is plain Python you can read, debug, and extend. No hidden chains. No global state. No lock-in.
 
 ---
 
@@ -107,7 +107,7 @@ print(my_agent.run("What's the weather in Tokyo?"))
 | Observability | **✅ Prometheus + Grafana** | ❌ No | ❌ No |
 | Verifiable audit trails | **✅ Signed, hash-chained** | ❌ No | ❌ No |
 | Type safety | **✅ Strict dataclasses** | ⚠️ Partial | ⚠️ Partial |
-| LLM providers | **33** | 38+ | 20+ |
+| LLM providers | **35** | 38+ | 20+ |
 | Stack traces | **Your code** | Framework internals | Framework internals |
 | License | **Apache 2.0** | MIT | MIT |
 
@@ -425,7 +425,7 @@ verification uses the `swipl` executable when `PrologBackend` is selected.
 
 | 🧠 LLM Providers | 🗄 Vector Stores | 📂 Data Loaders | 🔧 Agent Tools |
 |:---:|:---:|:---:|:---:|
-| **33** | **22** | **64** | **48+** |
+| **35** | **22** | **66** | **50** |
 
 Every integration is `pip install synapsekit[name]` — nothing else. Swap providers, vector stores, or loaders without touching your application code.
 
@@ -433,7 +433,7 @@ Every integration is `pip install synapsekit[name]` — nothing else. Swap provi
 
 > Icons use [Google Favicons](https://google.com/s2/favicons) for reliability across light and dark themes.
 
-### 🧠 LLM Providers — 33 supported
+### 🧠 LLM Providers — 35 supported
 
 > Every provider implements the same `BaseLLM` interface. Auto-detected from model name — `gpt-4o` → OpenAI, `claude-*` → Anthropic, `gemini-*` → Google. **Swap without rewriting.**
 
@@ -481,6 +481,7 @@ Every integration is `pip install synapsekit[name]` — nothing else. Swap provi
   <tr>
     <td align="center" width="90"><img src="https://www.google.com/s2/favicons?domain=docs.vllm.ai&sz=128" height="40" alt="vLLM"/><br/><sub><b>vLLM</b></sub></td>
     <td align="center" width="90"><img src="https://www.google.com/s2/favicons?domain=gpt4all.io&sz=128" height="40" alt="GPT4All"/><br/><sub><b>GPT4All</b></sub></td>
+    <td align="center" width="90"><img src="https://www.google.com/s2/favicons?domain=ml-explore.github.io&sz=128" height="40" alt="MLX"/><br/><sub><b>MLX</b></sub></td>
   </tr>
 </table>
 
@@ -522,7 +523,7 @@ Every integration is `pip install synapsekit[name]` — nothing else. Swap provi
 
 ---
 
-### 📂 Data Loaders — 64 sources
+### 📂 Data Loaders — 66 sources
 
 > All return `list[Document]` with `.text` and `.metadata`. Every loader has a sync `.load()` and async `.aload()`. Load from disk, cloud, databases, or APIs — same interface everywhere.
 
@@ -612,7 +613,7 @@ Every integration is `pip install synapsekit[name]` — nothing else. Swap provi
 
 ---
 
-### 🔧 Agent Tools — 48+ built-in
+### 🔧 Agent Tools — 50 built-in
 
 > All implement `BaseTool` with a single async `run()`. Pass any list of tools to `ReActAgent` or `FunctionCallingAgent`. **Write your own in 5 lines.**
 
@@ -763,7 +764,7 @@ Everything you need to get started and go deep is in the docs.
 | 🗂 [RAG](https://synapsekit.github.io/synapsekit-docs/docs/rag/pipeline) | Pipelines, loaders, retrieval, vector stores |
 | 🤖 [Agents](https://synapsekit.github.io/synapsekit-docs/docs/agents/overview) | ReAct, function calling, tools, executor |
 | 🔀 [Graph Workflows](https://synapsekit.github.io/synapsekit-docs/docs/graph/overview) | DAG pipelines, conditional routing, parallel execution |
-| 🧠 [LLM Providers](https://synapsekit.github.io/synapsekit-docs/docs/llms/overview) | All 33 providers + ReasoningLLM with examples |
+| 🧠 [LLM Providers](https://synapsekit.github.io/synapsekit-docs/docs/llms/overview) | All 35 providers + ReasoningLLM with examples |
 | 🧪 [EvalCI](https://synapsekit.github.io/synapsekit-docs/docs/evalci/overview) | LLM quality gates on every PR — GitHub Action |
 | 📖 [API Reference](https://synapsekit.github.io/synapsekit-docs/docs/api/llm) | Full class and method reference |
 
