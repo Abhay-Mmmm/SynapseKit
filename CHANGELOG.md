@@ -9,6 +9,10 @@ SynapseKit uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Spec test for a replayable `AgentSwarm` auction receipt (`tests/agents/test_agent_swarm_receipt.py`, `xfail` pending implementation) — captures task_id, reputation-prior version, budget consumed, and outcome-score provenance per auction so a reviewer can tell whether a market win reflects a real outcome or a stale/self-reported score; added as an acceptance criterion on #734 (h/t @clementineCU)
+
 ---
 
 ## [2.0.0] — 2026-07-15
