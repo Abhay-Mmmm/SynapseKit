@@ -4,7 +4,7 @@
 
 **Legend:** ✅ built-in/maintained · 🧩 optional plugin/integration · ⚠️ partial/experimental · ❌ not supported · 🚧 unknown/needs verification
 
-**Last updated:** 2026-05-28
+**Last updated:** 2026-10-01
 
 ---
 
@@ -50,10 +50,10 @@
 
 | Framework | Maintained | Last push (UTC) | Source |
 |---|---|---|---|
-| SynapseKit | ✅ | 2026-05-27 | GH1 |
-| LangChain | ✅ | 2026-05-27 | GH2 |
-| LlamaIndex | ✅ | 2026-05-26 | GH3 |
-| Haystack | ✅ | 2026-05-28 | GH4 |
+| SynapseKit | ✅ | 2026-09-28 | GH1 |
+| LangChain | ✅ | 2026-10-01 | GH2 |
+| LlamaIndex | ✅ | 2026-09-29 | GH3 |
+| Haystack | ✅ | 2026-09-30 | GH4 |
 
 ---
 
